@@ -34,6 +34,15 @@ def ai_refactor_code(bad_code):
             ],
             model="llama-3.3-70b-versatile", # Uses a powerful model freely
         )
-        return completion.choices[0].message.content
+        # Get the raw response
+        cleaned_code = completion.choices[0].message.content
+
+        # Remove the markdown backticks
+        cleaned_code = cleaned_code.replace("```java", "")
+        cleaned_code = cleaned_code.replace("```", "")
+        
+        # Remove any extra whitespace
+        return cleaned_code.strip()
+
     except Exception as e:
         return f"API Error: {str(e)}"
