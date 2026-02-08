@@ -1,52 +1,50 @@
 import streamlit as st
-from backend.optimizer import hill_climbing_search
-from backend.analyzer import get_metrics
+from backend.ai_agent import ai_refactor_code
+from backend.validator import check_java_syntax
 
-# Page Config
-st.set_page_config(page_title="Auto-Refactor Agent", layout="wide")
+st.set_page_config(page_title="AI Code Cleaner", layout="wide")
 
-# Title and Abstract
-st.title("🤖 Auto-Refactor: AI Code Optimization Agent")
-st.markdown("""
-**Abstract:** This system treats code refactoring as a State-Space Search problem. 
-It uses **Hill Climbing** algorithms to minimize Cyclomatic Complexity.
-""")
+st.title("🧠 GenAI Code Refactoring Agent")
+st.info("Powered by Local LLM (DeepSeek-Coder) - No Data Leaves Your PC")
 
-# Input Section
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("Input Java Code")
-    code_input = st.text_area("Paste your code here:", height=400, value="""
-public class Test {
-    // This is a messy function
-    public void main(String args[]) {
-        int x = 0; // x is a bad name
-        if (x == 0) {
-            System.out.println("Hello");
-        }
+    st.subheader("Input Bad Code")
+    code_input = st.text_area("Paste Java Code:", height=400, value="""
+public class MessyProcessor {
+    public void sort(int[] arr) {
+        int n = arr.length;
+        // Bad Bubble Sort - O(n^2)
+        for (int i = 0; i < n-1; i++)
+            for (int j = 0; j < n-i-1; j++)
+                if (arr[j] > arr[j+1]) {
+                    int temp = arr[j];
+                    arr[j] = arr[j+1];
+                    arr[j+1] = temp;
+                }
     }
 }
 """)
     
-    if st.button("Optimize Code 🚀"):
-        with st.spinner("Agent is analyzing AST and searching for optimizations..."):
-            # Run the AI
-            optimized_code, logs, final_metrics = hill_climbing_search(code_input)
+    if st.button("✨ Auto-Repair & Optimize"):
+        with st.spinner("AI is thinking... (This depends on your GPU speed)"):
+            # 1. GENERATE
+            optimized_code = ai_refactor_code(code_input)
             
-            # Store results in session state to display in col2
-            st.session_state['opt_code'] = optimized_code
-            st.session_state['logs'] = logs
-            st.session_state['metrics'] = final_metrics
+            # 2. VALIDATE
+            is_valid, msg = check_java_syntax(optimized_code)
+            
+            st.session_state['result_code'] = optimized_code
+            st.session_state['validation_msg'] = msg
 
-# Output Section
 with col2:
-    st.subheader("Refactored Code")
-    if 'opt_code' in st.session_state:
-        st.code(st.session_state['opt_code'], language='java')
+    st.subheader("AI Optimized Result")
+    if 'result_code' in st.session_state:
+        st.code(st.session_state['result_code'], language='java')
         
-        st.subheader("Change Log (Planner Output)")
-        for log in st.session_state['logs']:
-            st.success(log)
-            
-        st.metric(label="Final Cyclomatic Complexity", value=st.session_state['metrics']['complexity'])
+        # Validation Badge
+        if "Valid" in st.session_state['validation_msg']:
+            st.success(st.session_state['validation_msg'])
+        else:
+            st.error(st.session_state['validation_msg'])

@@ -1,0 +1,5 @@
+streamlit
+lizard
+javalang
+networkx
+groq
