@@ -32,7 +32,7 @@ def ai_refactor_code(bad_code):
                     "content": prompt,
                 }
             ],
-            model="llama3-70b-8192", # Uses a powerful model freely
+            model="llama-3.3-70b-versatile", # Uses a powerful model freely
         )
         return completion.choices[0].message.content
     except Exception as e:
