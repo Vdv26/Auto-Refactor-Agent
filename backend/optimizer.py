@@ -1,4 +1,4 @@
-from backend.ai_agent import ai_refactor_code
+from backend.ai_agent import ai_refactor_code, extract_json_from_response # <- Add extract_json_from_response here
 from backend.validator import check_syntax
 import ollama
 
@@ -57,22 +57,20 @@ def reflection_loop(bad_code, language, max_retries=3):
         try:
             print(f"🤖 [Reflection] Sending error back to LLM for Attempt {attempt + 1}...")
             response = ollama.chat(
-                model='deepseek-coder:latest', 
+                model='deepseek-coder:latest', # Make sure this matches your 'ollama list' name exactly
                 messages=[{'role': 'user', 'content': correction_prompt}],
-                format='json', # ✨ ADD THIS HERE TOO ✨
+                format='json', 
                 options={'temperature': 0.1}
             )
-            
-            # Basic parsing for the correction attempt
-            import json, re
             raw_output = response['message']['content']
-            match = re.search(r'```(?:json)?(.*?)```', raw_output, re.DOTALL)
-            if match:
-                parsed = json.loads(match.group(1).strip())
-                optimized_code = parsed.get("optimized_code", optimized_code)
+            
+            # ✨ NEW: Safely extract the JSON using the robust function we built earlier
+            parsed = extract_json_from_response(raw_output)
+            
+            if parsed and isinstance(parsed, dict) and "optimized_code" in parsed:
+                optimized_code = parsed["optimized_code"]
             else:
-                parsed = json.loads(raw_output)
-                optimized_code = parsed.get("optimized_code", optimized_code)
+                log.append(f"Attempt {attempt + 1}: LLM failed to return valid JSON structure.")
                 
         except Exception as e:
             log.append(f"Correction iteration failed: {str(e)}")
