@@ -40,11 +40,12 @@ def ai_refactor_code(bad_code, language="java"):
     You MUST strictly obey these COMPANY CODING STANDARDS:
     {context_rules}
     
-    CRITICAL INSTRUCTIONS:
+   CRITICAL INSTRUCTIONS:
     1. Output a RAW JSON object. NO markdown formatting. NO backticks. NO conversational text.
     2. "optimized_code" MUST contain the ENTIRE, COMPLETE, and RUNNABLE script. 
-    3. KEEP ORIGINAL SIGNATURES: You MUST keep the original function names (e.g., do not change a utility function into a main() function).
-    4. ALGORITHMS: If the language is C, you must implement a manual efficient sorting algorithm (like Quick Sort or Merge Sort) or use the standard C qsort().
+    3. KEEP ORIGINAL SIGNATURES: You MUST keep the original function names (e.g., keep s_rt, do not change it to bubbleSort or main).
+    4. ALGORITHMS: If the language is C, you must use the standard C qsort().
+    5. BANNED CONCEPTS: You are STRICTLY FORBIDDEN from writing Bubble Sort, Selection Sort, or nested loops for sorting.
     
     Return EXACTLY this JSON template and absolutely nothing else:
     {{
