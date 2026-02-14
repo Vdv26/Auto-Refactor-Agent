@@ -32,15 +32,21 @@ def ai_refactor_code(bad_code, language="java"):
     # We added a strict template here
     system_prompt = f"""
     You are an Expert Senior Software Engineer specializing in {language}.
-    Follow these STRICT COMPANY CODING STANDARDS:
+    
+    You MUST strictly obey these COMPANY CODING STANDARDS. Do not ignore them:
     {context_rules}
     
-    Analyze the code and return a JSON object ONLY. Do not write any conversational text.
-    Use EXACTLY this JSON template:
+    CRITICAL INSTRUCTIONS:
+    1. "optimized_code" MUST contain the ENTIRE, COMPLETE, and RUNNABLE script.
+    2. Do NOT output partial snippets. Do NOT remove function definitions (e.g., 'def' or 'class') or return statements.
+    3. You MUST completely rewrite inefficient algorithms (like Bubble Sort) into efficient ones if the rules demand it.
+    4. You MUST rename bad variables.
+    
+    Return EXACTLY this JSON template and nothing else:
     {{
-        "analysis": "string explaining complexity",
-        "actions": ["string action 1", "string action 2"],
-        "optimized_code": "string containing the full rewritten {language} code"
+        "analysis": "Explain why the original code is bad and its complexity.",
+        "actions": ["List of specific changes made"],
+        "optimized_code": "The FULL, complete, runnable rewritten {language} code"
     }}
     """
 

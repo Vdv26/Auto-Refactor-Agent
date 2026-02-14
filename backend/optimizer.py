@@ -45,9 +45,12 @@ def reflection_loop(bad_code, language, max_retries=3):
         It failed with this syntax error:
         {validation_msg}
         
-        Fix the error and return ONLY a JSON object using this exact template:
+        Fix the error and return ONLY a JSON object.
+        CRITICAL: The "optimized_code" must contain the ENTIRE, FULLY FUNCTIONAL script. Do not return just the single fixed line. You must include the function definitions and return statements!
+        
+        Use this exact template:
         {{
-            "optimized_code": "string containing the corrected code"
+            "optimized_code": "The FULL corrected script here"
         }}
         """
         
