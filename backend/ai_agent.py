@@ -26,7 +26,6 @@ def ai_refactor_code(bad_code, language="python"):
     
     context_rules = get_refactoring_context(bad_code)
     
-    # 🎯 Stripped down, Python-focused prompt
     system_prompt = f"""
     You are an Expert Python Developer.
     
@@ -34,14 +33,15 @@ def ai_refactor_code(bad_code, language="python"):
     {context_rules}
     
     CRITICAL RULES:
-    1. Analyze the Python code and improve its Time and Space complexity.
+    1. Analyze the Python code and radically improve its Time and Space complexity.
     2. Keep the original function name.
     3. Return ONLY a valid JSON object. No conversational text.
+    4. "optimized_code" MUST be a single string. Do NOT output a dictionary or list.
     
-    Respond EXACTLY using this JSON structure:
+    EXAMPLE FORMAT:
     {{
         "analysis": "The code uses an inefficient O(n^2) loop.",
-        "actions": ["Replaced nested loops with an optimized algorithm like Sieve of Eratosthenes", "Used list comprehensions"],
+        "actions": ["Replaced nested loops with an optimized algorithm", "Used list comprehensions"],
         "optimized_code": "def example_function(n):\\n    # highly optimized Python code here\\n    return result"
     }}
     """
@@ -61,14 +61,21 @@ def ai_refactor_code(bad_code, language="python"):
         raw_output = response['message']['content']
         parsed_data = extract_json_from_response(raw_output)
         
-        # Safety net for JSON keys
         if parsed_data:
             code_key = "optimized_code" if "optimized_code" in parsed_data else "optimizedCode"
             if code_key in parsed_data:
                 code_val = parsed_data[code_key]
-                if isinstance(code_val, list):
-                    code_val = "\n".join(code_val)
-                parsed_data["optimized_code"] = code_val
+                
+                # ✨ NEW: Aggressive Type Catcher
+                # If the LLM disobeys and outputs a dictionary or list, we force it back into a string.
+                if isinstance(code_val, dict):
+                    # Extract just the values (the code lines) from the dictionary
+                    code_val = "\n".join(str(v) for v in code_val.values())
+                elif isinstance(code_val, list):
+                    # Join list arrays into a single string
+                    code_val = "\n".join(str(v) for v in code_val)
+                
+                parsed_data["optimized_code"] = str(code_val)
                 return parsed_data
         
         print(f"❌ [Agent] PARSE FAILED. Raw Output:\n{raw_output}")

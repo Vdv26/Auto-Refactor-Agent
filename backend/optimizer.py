@@ -1,31 +1,24 @@
-from backend.ai_agent import ai_refactor_code, extract_json_from_response # <- Add extract_json_from_response here
+from backend.ai_agent import ai_refactor_code, extract_json_from_response
 from backend.validator import check_syntax
 import ollama
 
 def reflection_loop(bad_code, language, max_retries=3):
-    """
-    Forces the LLM to fix its own syntax errors if the validator fails.
-    """
     current_code = bad_code
     attempt = 1
     log = []
 
-    # Initial Generation
     log.append(f"Attempt 1: Sending original code to DeepSeek-Coder...")
     agent_response = ai_refactor_code(current_code, language)
     
-    # NEW: Properly log the error if the agent fails
     if "error" in agent_response:
          log.append(f"❌ Fatal Error: {agent_response['error']}")
          return None, agent_response["error"], log
 
     optimized_code = agent_response.get("optimized_code", "")
     analysis = agent_response.get("analysis", "No analysis provided.")
-    actions = agent_response.get("actions", [])
     
     log.append(f"Analysis: {analysis}")
-    # ... rest of the code remains the same
-    # Validation & Correction Loop
+
     while attempt <= max_retries:
         is_valid, validation_msg = check_syntax(optimized_code, language)
         
@@ -36,14 +29,19 @@ def reflection_loop(bad_code, language, max_retries=3):
         log.append(f"Attempt {attempt}: Validation Failed. ❌ Error:\n{validation_msg.strip()}")
         log.append("Feeding error back to AI for correction...")
         
-      # Self-Correction Prompt
+        # ✨ NEW: Smart Correction Prompt (No placeholders it can copy)
         correction_prompt = f"""
         Your previous Python code failed with this Syntax Error:
         {validation_msg}
         
-        Fix the error and return ONLY a valid JSON object matching this exact structure:
+        Here is the broken code you wrote:
+        {optimized_code}
+        
+        Fix the python syntax error. Return ONLY a valid JSON object. 
+        The "optimized_code" key MUST contain the actual fixed Python code. Do not write placeholder text.
+        
         {{
-            "optimized_code": "The FULL corrected Python script here as a single string"
+            "optimized_code": "def your_function():\\n    # real fixed code goes here"
         }}
         """
         
@@ -52,16 +50,20 @@ def reflection_loop(bad_code, language, max_retries=3):
             response = ollama.chat(
                 model='deepseek-coder:latest', 
                 messages=[{'role': 'user', 'content': correction_prompt}],
-                format='json', # ✨ IT IS BACK!
+                format='json', 
                 options={'temperature': 0.1}
             )
             raw_output = response['message']['content']
-            
-            # ✨ NEW: Safely extract the JSON using the robust function we built earlier
             parsed = extract_json_from_response(raw_output)
             
             if parsed and isinstance(parsed, dict) and "optimized_code" in parsed:
-                optimized_code = parsed["optimized_code"]
+                code_val = parsed["optimized_code"]
+                # Aggressive Type Catcher for Reflection too
+                if isinstance(code_val, dict):
+                    code_val = "\n".join(str(v) for v in code_val.values())
+                elif isinstance(code_val, list):
+                    code_val = "\n".join(str(v) for v in code_val)
+                optimized_code = str(code_val)
             else:
                 log.append(f"Attempt {attempt + 1}: LLM failed to return valid JSON structure.")
                 
