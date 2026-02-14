@@ -36,8 +36,7 @@ def reflection_loop(bad_code, language, max_retries=3):
         log.append(f"Attempt {attempt}: Validation Failed. ❌ Error: {validation_msg.strip().split('\n')[-1]}")
         log.append("Feeding error back to AI for correction...")
         
-       
-        # Self-Correction Prompt
+       # Self-Correction Prompt
         correction_prompt = f"""
         You previously generated this {language} code:
         {optimized_code}
@@ -46,20 +45,22 @@ def reflection_loop(bad_code, language, max_retries=3):
         {validation_msg}
         
         Fix the error and return ONLY a JSON object.
-        CRITICAL: The "optimized_code" must contain the ENTIRE, FULLY FUNCTIONAL script. Do not return just the single fixed line. You must include the function definitions and return statements!
+        CRITICAL: The "optimized_code" must contain the ENTIRE, FULLY FUNCTIONAL script.
         
-        Use this exact template:
+        Output it inside a markdown block exactly like this:
+        ```json
         {{
             "optimized_code": "The FULL corrected script here"
         }}
+        ```
         """
         
         try:
             print(f"🤖 [Reflection] Sending error back to LLM for Attempt {attempt + 1}...")
             response = ollama.chat(
-                model='deepseek-coder:latest', # Make sure this matches your 'ollama list' name exactly
+                model='deepseek-coder:latest', 
                 messages=[{'role': 'user', 'content': correction_prompt}],
-                format='json', 
+                # ✨ REMOVED format='json' FROM HERE
                 options={'temperature': 0.1}
             )
             raw_output = response['message']['content']

@@ -38,27 +38,29 @@ def ai_refactor_code(bad_code, language="java"):
     
     CRITICAL INSTRUCTIONS:
     1. "optimized_code" MUST contain the ENTIRE, COMPLETE, and RUNNABLE script.
-    2. Do NOT output partial snippets. Do NOT remove function definitions (e.g., 'def' or 'class') or return statements.
+    2. Do NOT output partial snippets. Do NOT remove function definitions or includes.
     3. You MUST completely rewrite inefficient algorithms (like Bubble Sort) into efficient ones if the rules demand it.
     4. You MUST rename bad variables.
     
-    Return EXACTLY this JSON template and nothing else:
+    Return EXACTLY this JSON template and nothing else. Output it inside a markdown block:
+    ```json
     {{
         "analysis": "Explain why the original code is bad and its complexity.",
         "actions": ["List of specific changes made"],
         "optimized_code": "The FULL, complete, runnable rewritten {language} code"
     }}
+    ```
     """
 
     try:
         print("🤖 [Agent] Sending original code to DeepSeek-Coder...") 
         response = ollama.chat(
-            model='deepseek-coder:latest', # Make sure this matches your 'ollama list' name exactly
+            model='deepseek-coder:latest', 
             messages=[
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': f"Optimize this {language} code:\n\n{bad_code}"}
             ],
-            format='json', # ✨ THIS IS THE MAGIC FIX ✨
+            # ✨ REMOVED format='json' FROM HERE
             options={'temperature': 0.1}
         )
         
