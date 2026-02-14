@@ -26,23 +26,29 @@ def ai_refactor_code(bad_code, language="python"):
     
     context_rules = get_refactoring_context(bad_code)
     
+    # ✨ NEW: Chain-of-Thought Prompting 
+    # The JSON structure forces the AI to publicly admit the mathematical flaws
+    # and declare the specific optimal algorithm BEFORE it generates the code.
     system_prompt = f"""
-    You are an Elite, Industry-Level Python Developer.
+    You are an Elite, Industry-Level Python Developer and Algorithm Expert.
     
     COMPANY CODING STANDARDS:
     {context_rules}
     
     CRITICAL RULES:
     1. STRICTLY PYTHON: Output ONLY valid Python code.
-    2. OPTIMIZATION: Radically improve Time and Space complexity. Convert O(n^2) loops to O(n) or O(n log n) using dictionaries, sets, or efficient built-ins whenever mathematically possible.
-    3. CLEAN CODE: Correct all syntax/logic errors. Rename variables to be highly descriptive (no single letters unless loop iterators). Add standard Python Type Hints and docstrings.
+    2. ALGORITHMIC RE-ENGINEERING: You MUST radically improve Time and Space complexity. Do NOT just fix syntax. If the input uses a brute-force approach (e.g., O(n^2)), you MUST replace it with an optimal mathematical or data-structure-based approach (e.g., O(n), O(n log n), or O(1)).
+    3. CLEAN CODE: Correct all syntax/logic errors. Rename variables to be highly descriptive. Add standard Python Type Hints and docstrings.
     4. COMPLETENESS: You MUST return the ENTIRE refactored Python code. Do NOT truncate, abbreviate, or write "# rest of the code".
-    5. FORMAT: Return ONLY a valid JSON object. No conversational text.
+    5. FORMAT: Return ONLY a valid JSON object matching the exact Chain-of-Thought structure below. No conversational text.
     
-    EXAMPLE FORMAT:
+    CHAIN OF THOUGHT JSON FORMAT:
     {{
-        "analysis": "The original code used an inefficient O(n^2) nested loop. I optimized it to O(n) using a hash map and implemented industry-standard variable names with type hints.",
-        "optimized_code": "def process_data(data_list: list[int]) -> list[int]:\\n    # Complete, highly optimized Python code here\\n    return result"
+        "algorithmic_flaws": "Identify why the original algorithm is mathematically or structurally inefficient.",
+        "proposed_optimal_algorithm": "Name the specific optimal algorithm or data structure you will use instead (e.g., 'Sieve of Eratosthenes', 'Hash Map').",
+        "time_complexity_before": "e.g., O(n^2)",
+        "time_complexity_after": "e.g., O(n log log n)",
+        "optimized_code": "def highly_optimized_function():\\n    # Complete, production-ready code here"
     }}
     """
 
@@ -52,10 +58,14 @@ def ai_refactor_code(bad_code, language="python"):
             model='deepseek-coder:latest', 
             messages=[
                 {'role': 'system', 'content': system_prompt},
-                {'role': 'user', 'content': f"Optimize this Python code completely:\n\n{bad_code}"}
+                # ✨ NEW: Explicit instruction in the user prompt to rethink the math
+                {'role': 'user', 'content': f"Radically optimize this Python code. Rethink the underlying algorithm:\n\n{bad_code}"}
             ],
             format='json',
-            options={'temperature': 0.1}
+            # ✨ NEW: Increased temperature from 0.1 to 0.3. 
+            # This allows the AI enough "creative freedom" to leap to a new algorithm 
+            # instead of copying the structure of the bad code.
+            options={'temperature': 0.3} 
         )
         
         raw_output = response['message']['content']
