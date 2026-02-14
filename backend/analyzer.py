@@ -2,12 +2,12 @@ import lizard
 
 def get_metrics(code_string):
     """
-    Analyzes Java code and returns complexity metrics.
+    Analyzes Python code and returns complexity metrics.
     """
-    # Lizard analyzes the code string acting as a file
-    analysis = lizard.analyze_file.analyze_source_code("temp.java", code_string)
+    # Lizard analyzes the code string acting as a Python file
+    analysis = lizard.analyze_file.analyze_source_code("temp.py", code_string)
     
-    # If no functions found, return 0
+    # If no functions found, return fallback
     if not analysis.function_list:
         return {"complexity": 0, "loc": len(code_string.split('\n'))}
 
@@ -22,9 +22,9 @@ def get_metrics(code_string):
     }
 
 def calculate_heuristic(metrics):
-    # Weights from your document 
-    w1 = 1.0  # Weight for Complexity
-    w2 = 0.05 # Weight for Lines of Code (less important)
+    # Weights for Complexity
+    w1 = 1.0  
+    w2 = 0.05 
     
     # H(n) formula
     score = (w1 * metrics["complexity"]) + (w2 * metrics["loc"])

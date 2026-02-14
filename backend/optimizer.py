@@ -2,7 +2,7 @@ from backend.ai_agent import ai_refactor_code, extract_json_from_response
 from backend.validator import check_syntax
 import ollama
 
-def reflection_loop(bad_code, language, max_retries=3):
+def reflection_loop(bad_code, language="python", max_retries=3):
     current_code = bad_code
     attempt = 1
     log = []
@@ -29,7 +29,6 @@ def reflection_loop(bad_code, language, max_retries=3):
         log.append(f"Attempt {attempt}: Validation Failed. ❌ Error:\n{validation_msg.strip()}")
         log.append("Feeding error back to AI for correction...")
         
-        # ✨ NEW: Smart Correction Prompt (No placeholders it can copy)
         correction_prompt = f"""
         Your previous Python code failed with this Syntax Error:
         {validation_msg}
@@ -37,11 +36,14 @@ def reflection_loop(bad_code, language, max_retries=3):
         Here is the broken code you wrote:
         {optimized_code}
         
-        Fix the python syntax error. Return ONLY a valid JSON object. 
-        The "optimized_code" key MUST contain the actual fixed Python code. Do not write placeholder text.
+        CRITICAL INSTRUCTIONS:
+        1. Fix the Python syntax error.
+        2. Return the ENTIRE fixed code. DO NOT TRUNCATE.
+        3. Return ONLY a valid JSON object. 
         
+        FORMAT:
         {{
-            "optimized_code": "def your_function():\\n    # real fixed code goes here"
+            "optimized_code": "def your_function():\\n    # The COMPLETE, real fixed code goes here"
         }}
         """
         
@@ -58,7 +60,6 @@ def reflection_loop(bad_code, language, max_retries=3):
             
             if parsed and isinstance(parsed, dict) and "optimized_code" in parsed:
                 code_val = parsed["optimized_code"]
-                # Aggressive Type Catcher for Reflection too
                 if isinstance(code_val, dict):
                     code_val = "\n".join(str(v) for v in code_val.values())
                 elif isinstance(code_val, list):

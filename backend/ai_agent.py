@@ -27,22 +27,22 @@ def ai_refactor_code(bad_code, language="python"):
     context_rules = get_refactoring_context(bad_code)
     
     system_prompt = f"""
-    You are an Expert Python Developer.
+    You are an Elite, Industry-Level Python Developer.
     
     COMPANY CODING STANDARDS:
     {context_rules}
     
     CRITICAL RULES:
-    1. Analyze the Python code and radically improve its Time and Space complexity.
-    2. Keep the original function name.
-    3. Return ONLY a valid JSON object. No conversational text.
-    4. "optimized_code" MUST be a single string. Do NOT output a dictionary or list.
+    1. STRICTLY PYTHON: Output ONLY valid Python code.
+    2. OPTIMIZATION: Radically improve Time and Space complexity. Convert O(n^2) loops to O(n) or O(n log n) using dictionaries, sets, or efficient built-ins whenever mathematically possible.
+    3. CLEAN CODE: Correct all syntax/logic errors. Rename variables to be highly descriptive (no single letters unless loop iterators). Add standard Python Type Hints and docstrings.
+    4. COMPLETENESS: You MUST return the ENTIRE refactored Python code. Do NOT truncate, abbreviate, or write "# rest of the code".
+    5. FORMAT: Return ONLY a valid JSON object. No conversational text.
     
     EXAMPLE FORMAT:
     {{
-        "analysis": "The code uses an inefficient O(n^2) loop.",
-        "actions": ["Replaced nested loops with an optimized algorithm", "Used list comprehensions"],
-        "optimized_code": "def example_function(n):\\n    # highly optimized Python code here\\n    return result"
+        "analysis": "The original code used an inefficient O(n^2) nested loop. I optimized it to O(n) using a hash map and implemented industry-standard variable names with type hints.",
+        "optimized_code": "def process_data(data_list: list[int]) -> list[int]:\\n    # Complete, highly optimized Python code here\\n    return result"
     }}
     """
 
@@ -52,7 +52,7 @@ def ai_refactor_code(bad_code, language="python"):
             model='deepseek-coder:latest', 
             messages=[
                 {'role': 'system', 'content': system_prompt},
-                {'role': 'user', 'content': f"Optimize this Python code:\n\n{bad_code}"}
+                {'role': 'user', 'content': f"Optimize this Python code completely:\n\n{bad_code}"}
             ],
             format='json',
             options={'temperature': 0.1}
@@ -66,13 +66,10 @@ def ai_refactor_code(bad_code, language="python"):
             if code_key in parsed_data:
                 code_val = parsed_data[code_key]
                 
-                # ✨ NEW: Aggressive Type Catcher
-                # If the LLM disobeys and outputs a dictionary or list, we force it back into a string.
+                # Aggressive Type Catcher
                 if isinstance(code_val, dict):
-                    # Extract just the values (the code lines) from the dictionary
                     code_val = "\n".join(str(v) for v in code_val.values())
                 elif isinstance(code_val, list):
-                    # Join list arrays into a single string
                     code_val = "\n".join(str(v) for v in code_val)
                 
                 parsed_data["optimized_code"] = str(code_val)
