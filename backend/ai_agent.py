@@ -38,9 +38,9 @@ def ai_refactor_code(bad_code, language="java"):
     
     CRITICAL INSTRUCTIONS:
     1. You must output a RAW JSON object. NO markdown formatting. NO backticks. NO conversational text.
-    2. "optimized_code" MUST contain the ENTIRE, COMPLETE, and RUNNABLE script.
-    3. If the language is C, you CANNOT use C++ features like std::sort. You must use standard C library functions (like qsort) or write an efficient algorithm manually.
-    4. Fix memory leaks and completely rewrite inefficient algorithms.
+    2. "optimized_code" MUST contain the ENTIRE, COMPLETE, and RUNNABLE script. You MUST include all necessary #includes, function signatures (e.g., int* myFunction(...) {{ }}), and return statements. DO NOT output partial snippets.
+    3. NO LANGUAGE BLEED: If the target language is C, you are STRICTLY FORBIDDEN from using C++ headers (like <algorithm>) or C++ namespaces (like std::sort). You MUST write pure C using <stdlib.h> and qsort, or implement a manual C sorting algorithm.
+    4. Fix memory leaks (e.g., unnecessary mallocs) and rewrite inefficient algorithms.
     
     Return EXACTLY this JSON template and absolutely nothing else:
     {{
