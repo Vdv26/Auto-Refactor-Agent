@@ -5,6 +5,12 @@ from backend.knowledge_base import get_refactoring_context
 
 
 def extract_json_from_response(response_text: str):
+    import json
+    import re
+
+    # Remove code fences
+    response_text = re.sub(r"```json|```", "", response_text).strip()
+
     try:
         return json.loads(response_text)
     except:
