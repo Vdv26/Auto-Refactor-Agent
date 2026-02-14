@@ -1,50 +1,73 @@
-from backend.analyzer import get_metrics, calculate_heuristic
-from backend.refactorer import rename_variable, remove_comments
+from backend.ai_agent import ai_refactor_code
+from backend.validator import check_syntax
+import ollama
 
-def hill_climbing_search(original_code):
+def reflection_loop(bad_code, language, max_retries=3):
     """
-    Performs a Greedy Hill Climbing search to optimize code.
+    Forces the LLM to fix its own syntax errors if the validator fails.
     """
-    current_code = original_code
-    current_metrics = get_metrics(current_code)
-    current_score = calculate_heuristic(current_metrics)
+    current_code = bad_code
+    attempt = 1
+    log = []
+
+    # Initial Generation
+    log.append(f"Attempt 1: Sending original code to DeepSeek-Coder...")
+    agent_response = ai_refactor_code(current_code, language)
     
-    change_log = [] # To track what the AI did 
+    if "error" in agent_response:
+         return None, agent_response["error"], log
+
+    optimized_code = agent_response.get("optimized_code", "")
+    analysis = agent_response.get("analysis", "No analysis provided.")
+    actions = agent_response.get("actions", [])
     
-    # Search Loop (Try to improve 5 times)
-    for _ in range(5):
-        best_neighbor_code = None
-        best_neighbor_score = float('inf')
-        action_taken = ""
+    log.append(f"Analysis: {analysis}")
 
-        # GENERATE NEIGHBORS (Try different actions)
+    # Validation & Correction Loop
+    while attempt <= max_retries:
+        is_valid, validation_msg = check_syntax(optimized_code, language)
         
-        # Neighbor 1: Remove Comments
-        candidate_1 = remove_comments(current_code)
-        score_1 = calculate_heuristic(get_metrics(candidate_1))
+        if is_valid:
+            log.append(f"Attempt {attempt}: Validation Passed! ✅")
+            return optimized_code, "Success", log
+            
+        log.append(f"Attempt {attempt}: Validation Failed. ❌ Error: {validation_msg.strip().split('\n')[-1]}")
+        log.append("Feeding error back to AI for correction...")
         
-        if score_1 < current_score:
-            best_neighbor_code = candidate_1
-            best_neighbor_score = score_1
-            action_taken = "Removed Comments"
-
-        # Neighbor 2: Rename 'x' to 'index' (Example of specific heuristic)
-        if "int x" in current_code:
-            candidate_2 = rename_variable(current_code, "x", "index")
-            score_2 = calculate_heuristic(get_metrics(candidate_2))
+        # Self-Correction Prompt
+        correction_prompt = f"""
+        You previously generated this {language} code:
+        {optimized_code}
+        
+        It failed with this syntax error:
+        {validation_msg}
+        
+        Fix the error and return the corrected code.
+        RETURN ONLY A JSON OBJECT with the key "optimized_code".
+        """
+        
+        try:
+            response = ollama.chat(
+                model='deepseek-coder', # Adjust tag based on your exact installed model
+                messages=[{'role': 'user', 'content': correction_prompt}],
+                options={'temperature': 0.1}
+            )
+            # Basic parsing for the correction attempt
+            import json, re
+            raw_output = response['message']['content']
+            match = re.search(r'```(?:json)?(.*?)```', raw_output, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group(1).strip())
+                optimized_code = parsed.get("optimized_code", optimized_code)
+            else:
+                parsed = json.loads(raw_output)
+                optimized_code = parsed.get("optimized_code", optimized_code)
+                
+        except Exception as e:
+            log.append(f"Correction iteration failed: {str(e)}")
+            break
             
-            if score_2 < best_neighbor_score: # Is this better than Neighbor 1?
-                best_neighbor_code = candidate_2
-                best_neighbor_score = score_2
-                action_taken = "Renamed variable 'x' to 'index' for clarity"
+        attempt += 1
 
-        # DECISION STEP
-        # If we found a better state, move there. If not, stop (Local Optima).
-        if best_neighbor_code and best_neighbor_score < current_score:
-            current_code = best_neighbor_code
-            current_score = best_neighbor_score
-            change_log.append(f"Action: {action_taken} | New Score: {current_score:.2f}")
-        else:
-            break # No improvement found
-            
-    return current_code, change_log, current_metrics
+    log.append("Max retries reached. Returning best attempt.")
+    return optimized_code, "Failed to resolve all syntax errors.", log

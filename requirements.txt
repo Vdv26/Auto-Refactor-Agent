@@ -1,5 +1,5 @@
 streamlit
+ollama
+chromadb
+sentence-transformers
 lizard
-javalang
-networkx
-groq

@@ -1,0 +1,15 @@
+RULE 1: SOLID PRINCIPLES
+Single Responsibility Principle: A class or function should have one, and only one, reason to change.
+Open/Closed Principle: Code should be open for extension, but closed for modification.
+
+RULE 2: BIG-O OPTIMIZATION
+Bubble Sort (O(n^2)) should always be replaced with built-in sorting functions or efficient algorithms like Merge Sort or Quick Sort (O(n log n)).
+Nested loops searching for elements should be replaced with Hash Maps or Hash Sets to reduce lookup time from O(n) to O(1).
+
+RULE 3: VARIABLE NAMING
+Avoid single-letter variables like 'x', 'p', or 'temp' unless used as standard loop iterators (i, j, k).
+Variables must be descriptive (e.g., 'passengerCount' instead of 'pc').
+
+RULE 4: REDUNDANCY
+Remove unused variables immediately.
+Combine multiple identical loops if they iterate over the same data.

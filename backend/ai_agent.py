@@ -1,48 +1,57 @@
-import os
-from groq import Groq
+import json
+import ollama
+import re
+from backend.knowledge_base import get_refactoring_context
 
-def ai_refactor_code(bad_code):
-    """
-    Sends code to Groq API (Cloud) to fix syntax and optimize logic.
-    """
-    # Get the API Key from Streamlit Secrets (Best Practice)
-    api_key = os.environ.get("GROQ_API_KEY")
-    
-    if not api_key:
-        return "Error: GROQ_API_KEY not found. Please add it to Streamlit Secrets."
-
-    client = Groq(api_key=api_key)
-    
-    prompt = f"""
-    You are an expert Senior Software Engineer.
-    1. Fix any Syntax Errors in this Java code.
-    2. Optimize the Logic (Time/Space complexity).
-    3. Remove comments and unused variables.
-    4. RETURN ONLY THE JAVA CODE. No markdown, no explanations.
-    
-    Code:
-    {bad_code}
-    """
-    
+def extract_json_from_response(response_text):
     try:
-        completion = client.chat.completions.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-            model="llama-3.3-70b-versatile", # Uses a powerful model freely
-        )
-        # Get the raw response
-        cleaned_code = completion.choices[0].message.content
+        return json.loads(response_text)
+    except json.JSONDecodeError:
+        match = re.search(r'```(?:json)?(.*?)```', response_text, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(1).strip())
+            except:
+                pass
+    return None
 
-        # Remove the markdown backticks
-        cleaned_code = cleaned_code.replace("```java", "")
-        cleaned_code = cleaned_code.replace("```", "")
+def ai_refactor_code(bad_code, language="java"):
+    
+    # 1. RETRIEVAL: Get the most relevant rules from ChromaDB
+    context_rules = get_refactoring_context(bad_code)
+    
+    # 2. AUGMENTATION: Inject the rules into the system prompt
+    system_prompt = f"""
+    You are an Expert Senior Software Engineer specializing in {language}.
+    
+    Follow these STRICT COMPANY CODING STANDARDS:
+    {context_rules}
+    
+    Analyze the provided code and return a JSON object with EXACTLY these three keys:
+    1. "analysis": A brief explanation of the current Time/Space complexity and any code smells.
+    2. "actions": A list of strings detailing the specific improvements you will make, referencing the rules above.
+    3. "optimized_code": The complete, fully rewritten {language} code. It must be highly optimized, adhere to the rules, and contain NO syntax errors.
+    
+    DO NOT output any text outside of the JSON object.
+    """
+
+    try:
+        response = ollama.chat(
+            model='deepseek-coder', # Matching your installed model
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': f"Optimize this {language} code:\n\n{bad_code}"}
+            ],
+            options={'temperature': 0.1}
+        )
         
-        # Remove any extra whitespace
-        return cleaned_code.strip()
+        raw_output = response['message']['content']
+        parsed_data = extract_json_from_response(raw_output)
+        
+        if parsed_data and "optimized_code" in parsed_data:
+            return parsed_data
+        else:
+            return {"error": "Failed to parse LLM output into JSON.", "raw": raw_output}
 
     except Exception as e:
-        return f"API Error: {str(e)}"
+        return {"error": f"Local LLM Error: {str(e)}. Is Ollama running?"}
