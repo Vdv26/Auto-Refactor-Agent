@@ -1,91 +1,118 @@
-from backend.ai_agent import ai_refactor_code
 from backend.validator import check_syntax
 import ollama
+import re
 
 
-def reflection_loop(bad_code: str, language: str = "python", max_retries: int = 3):
+def extract_python_code(text: str) -> str:
+    """
+    Extracts the first Python code block or returns raw text.
+    """
+    # Try markdown code block
+    match = re.search(r"```python(.*?)```", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+
+    # Fallback: remove triple backticks
+    text = re.sub(r"```", "", text)
+
+    return text.strip()
+
+
+def sanitize_unicode(code: str) -> str:
+    """
+    Replace smart quotes and problematic unicode characters.
+    """
+    replacements = {
+        "“": '"',
+        "”": '"',
+        "‘": "'",
+        "’": "'",
+    }
+
+    for bad, good in replacements.items():
+        code = code.replace(bad, good)
+
+    return code
+
+
+def reflection_loop(bad_code: str, language: str = "python", max_retries: int = 1):
     logs = []
-    attempt = 1
 
-    # ---- INITIAL GENERATION ----
-    result = ai_refactor_code(bad_code, language)
+    prompt = f"""
+You are an elite Python engineer.
 
-    if "error" in result:
-        logs.append(f"Initial generation failed: {result['error']}")
-        return None, result["error"], logs
+STRICT RULES:
+- Output ONLY valid Python code.
+- Do NOT include explanations.
+- Do NOT include markdown.
+- Do NOT include comments outside code.
+- Return COMPLETE optimized implementation.
 
-    optimized_code = result.get("optimized_code", "").strip()
+Optimize this code:
 
-    logs.append("Algorithmic Flaws: " + result.get("analysis", ""))
-    logs.append("Proposed Algorithm: " + result.get("algorithm", ""))
-    logs.append("Time Before: " + result.get("time_before", ""))
-    logs.append("Time After: " + result.get("time_after", ""))
+{bad_code}
+"""
 
-    # ---- VALIDATION LOOP ----
-    while attempt <= max_retries:
+    try:
+        response = ollama.chat(
+            model="deepseek-coder:latest",
+            messages=[{"role": "user", "content": prompt}],
+            options={"temperature": 0.2},
+        )
 
-        if not optimized_code:
-            logs.append(f"Attempt {attempt} Failed: Generated code is empty.")
-        else:
-            is_valid, message = check_syntax(optimized_code)
+        raw_output = response["message"]["content"]
 
-            if is_valid:
-                logs.append(f"Attempt {attempt}: Validation Passed ✅")
-                return optimized_code, "Success", logs
+        optimized_code = extract_python_code(raw_output)
+        optimized_code = sanitize_unicode(optimized_code)
 
-            logs.append(f"Attempt {attempt} Failed: {message}")
+        if not optimized_code.strip():
+            logs.append("Model returned empty code.")
+            return "", "Failed: Empty Output", logs
 
-        # ---- REFLECTION PROMPT ----
-        correction_prompt = f"""
-You previously generated invalid Python code.
+        is_valid, message = check_syntax(optimized_code)
 
-STRICT FORMAT (DO NOT BREAK FORMAT):
+        if is_valid:
+            logs.append("Validation Passed ✅")
+            return optimized_code, "Success", logs
 
-===ANALYSIS===
-Explain what went wrong.
+        logs.append(f"Validation Failed: {message}")
 
-===ALGORITHM===
-Name optimal algorithm.
+        # ---- ONE SAFE RETRY ----
+        retry_response = ollama.chat(
+            model="deepseek-coder:latest",
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"""
+The previous code had a syntax error:
 
-===TIME_BEFORE===
-O(...)
+{message}
 
-===TIME_AFTER===
-O(...)
+Return ONLY corrected Python code.
+No explanations.
+No markdown.
 
-===CODE===
-FULL COMPLETE CORRECT PYTHON CODE
-
-Fix the following broken code:
+Fix this:
 
 {optimized_code}
 """
+                }
+            ],
+            options={"temperature": 0.0},
+        )
 
-        try:
-            print(f"🤖 [Reflection] Sending correction attempt {attempt + 1}...")
+        retry_output = retry_response["message"]["content"]
+        optimized_code = extract_python_code(retry_output)
+        optimized_code = sanitize_unicode(optimized_code)
 
-            response = ollama.chat(
-                model="deepseek-coder:latest",
-                messages=[{"role": "user", "content": correction_prompt}],
-                options={"temperature": 0.0},
-            )
+        is_valid, message = check_syntax(optimized_code)
 
-            raw_output = response["message"]["content"]
+        if is_valid:
+            logs.append("Retry Validation Passed ✅")
+            return optimized_code, "Success", logs
 
-            # Parse again using ai_agent's structured parser
-            new_result = ai_refactor_code(optimized_code, language)
+        logs.append(f"Retry Failed: {message}")
+        return optimized_code, "Failed after retry", logs
 
-            if "error" in new_result:
-                logs.append(f"Attempt {attempt + 1}: Structured parsing failed.")
-                optimized_code = ""
-            else:
-                optimized_code = new_result.get("optimized_code", "").strip()
-
-        except Exception as e:
-            logs.append(f"Reflection iteration crashed: {str(e)}")
-            break
-
-        attempt += 1
-
-    logs.append("Max retries reached.")
-    return optimized_code, "Max retries reached", logs
+    except Exception as e:
+        return "", f"Error: {str(e)}", logs
