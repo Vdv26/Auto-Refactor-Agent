@@ -4,18 +4,15 @@ import re
 from backend.knowledge_base import get_refactoring_context
 
 def extract_json_from_response(response_text):
-    """Aggressively tries to extract JSON from the LLM output."""
     try:
         return json.loads(response_text)
     except json.JSONDecodeError:
-        # Try finding markdown JSON blocks
         match = re.search(r'```(?:json)?(.*?)```', response_text, re.DOTALL)
         if match:
             try:
                 return json.loads(match.group(1).strip())
             except:
                 pass
-        # Emergency fallback: Find the first { and last }
         start = response_text.find('{')
         end = response_text.rfind('}')
         if start != -1 and end != -1:
@@ -29,36 +26,33 @@ def ai_refactor_code(bad_code, language="java"):
     
     context_rules = get_refactoring_context(bad_code)
     
-    # ✨ NEW: Intercept and force strict language definitions
     strict_lang = language
     if language.lower() == "c":
-        strict_lang = "Pure ANSI C. You must use <stdlib.h> for utilities. C++ features are strictly incompatible."
+        strict_lang = "Pure ANSI C (C++ is strictly forbidden)"
     
+    # ✨ NEW: ONE-SHOT PROMPTING. We show it an example instead of giving complex rules.
     system_prompt = f"""
-    You are an Expert Senior Software Engineer specializing in {strict_lang}.
+    You are an Expert Software Engineer specializing in {strict_lang}.
     
-    You MUST strictly obey these COMPANY CODING STANDARDS:
+    COMPANY CODING STANDARDS:
     {context_rules}
     
-   CRITICAL INSTRUCTIONS:
-    1. Output a RAW JSON object. NO markdown formatting. NO backticks. NO conversational text.
-    2. "optimized_code" MUST contain the ENTIRE, COMPLETE, and RUNNABLE script. 
-    3. KEEP ORIGINAL SIGNATURES: You MUST keep the original function names (e.g., keep s_rt, do not change it to bubbleSort or main).
-    4. ALGORITHMS: If the language is C, you must use the standard C qsort().
-    5. BANNED CONCEPTS: You are STRICTLY FORBIDDEN from writing Bubble Sort, Selection Sort, or nested loops for sorting.
+    CRITICAL RULES:
+    1. Keep original function signatures (e.g., keep s_rt).
+    2. If sorting in C, you MUST use qsort(). Bubble sort is BANNED.
     
-    Return EXACTLY this JSON template and absolutely nothing else:
+    Respond ONLY with a JSON object matching this EXACT example structure:
     {{
-        "analysis": "Explain the complexity and memory issues.",
-        "actions": ["List of changes made"],
-        "optimized_code": "The FULL rewritten {language} code here"
+        "analysis": "The code uses O(n^2) bubble sort and leaks memory.",
+        "actions": ["Replaced bubble sort with qsort", "Removed malloc to sort in-place"],
+        "optimized_code": "#include <stdio.h>\\n#include <stdlib.h>\\n\\nint compare(const void *a, const void *b) {{\\n    return (*(int*)a - *(int*)b);\\n}}\\n\\nint* s_rt(int* a, int sz) {{\\n    qsort(a, sz, sizeof(int), compare);\\n    return a;\\n}}"
     }}
     """
 
     try:
         print(f"🤖 [Agent] Sending original code to DeepSeek-Coder (Target: {strict_lang})...") 
         response = ollama.chat(
-            model='deepseek-coder', 
+            model='deepseek-coder:latest', 
             messages=[
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': f"Optimize this {language} code:\n\n{bad_code}"}
@@ -70,11 +64,18 @@ def ai_refactor_code(bad_code, language="java"):
         raw_output = response['message']['content']
         parsed_data = extract_json_from_response(raw_output)
         
-        if parsed_data and "optimized_code" in parsed_data:
-            return parsed_data
-        else:
-            print(f"❌ [Agent] PARSE FAILED. Raw Output:\n{raw_output}")
-            return {"error": "Failed to parse LLM output into JSON. Check terminal.", "raw": raw_output}
+        # ✨ NEW: Safety net to catch if the AI renames the key or makes it a list
+        if parsed_data:
+            code_key = "optimized_code" if "optimized_code" in parsed_data else "optimizedCode"
+            if code_key in parsed_data:
+                code_val = parsed_data[code_key]
+                if isinstance(code_val, list):
+                    code_val = "\n".join(code_val) # Fixes the array bug!
+                parsed_data["optimized_code"] = code_val
+                return parsed_data
+        
+        print(f"❌ [Agent] PARSE FAILED. Raw Output:\n{raw_output}")
+        return {"error": "Failed to parse LLM output into JSON. Check terminal.", "raw": raw_output}
 
     except Exception as e:
         return {"error": f"Local LLM Error: {str(e)}"}

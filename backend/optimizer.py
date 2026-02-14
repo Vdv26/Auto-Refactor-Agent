@@ -38,21 +38,12 @@ def reflection_loop(bad_code, language, max_retries=3):
         
        # Self-Correction Prompt
         correction_prompt = f"""
-        You previously generated this {language} code:
-        {optimized_code}
-        
-        It failed validation with this compiler error:
+        Your previous {language} code failed compilation:
         {validation_msg}
         
-        Fix the error and return ONLY a RAW JSON object. NO markdown formatting. NO backticks.
-        
-        CRITICAL RULES FOR CORRECTION:
-        1. The "optimized_code" MUST contain the ENTIRE, FULLY FUNCTIONAL script (includes, function definitions, logic, returns). Do not output just the single fixed line.
-        2. Ensure strict {language} syntax. If the target is C, do NOT use C++ features.
-        
-        Use exactly this template:
+        Fix the syntax error and return ONLY a JSON object matching this example:
         {{
-            "optimized_code": "The FULL corrected script here"
+            "optimized_code": "The FULL corrected runnable script here as a single string"
         }}
         """
         
