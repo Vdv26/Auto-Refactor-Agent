@@ -44,20 +44,24 @@ def reflection_loop(bad_code: str, language: str = "python", max_retries: int = 
 
             logs.append(f"Attempt {attempt} Failed: {message}")
 
-        # ---- CORRECTION PROMPT ----
         correction_prompt = f"""
-Your previous JSON response contained invalid Python code.
+    Your previous output was invalid.
 
-Fix ALL issues and return ONLY valid JSON in this format:
+    You MUST return ONLY valid JSON in EXACT format:
 
-{{
-    "optimized_code": "FULL COMPLETE PYTHON CODE HERE"
-}}
+    {{
+        "optimized_code": "FULL COMPLETE PYTHON CODE"
+    }}
 
-Here is the broken code:
+    DO NOT include explanations.
+    DO NOT include markdown.
+    DO NOT include extra fields.
 
-{optimized_code}
-"""
+    Here is the broken code:
+
+    {optimized_code}
+    """
+
 
         try:
             print(f"🤖 [Reflection] Sending correction attempt {attempt + 1}...")

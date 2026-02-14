@@ -21,7 +21,9 @@ def extract_json_from_response(response_text: str):
                 return json.loads(match.group())
             except json.JSONDecodeError:
                 return None
+        print("⚠ RAW LLM OUTPUT:\n", response_text)
     return None
+
 
 
 def ai_refactor_code(bad_code: str, language: str = "python"):
@@ -57,14 +59,25 @@ REQUIRED JSON FORMAT:
 
     try:
         response = ollama.chat(
-            model="deepseek-coder:latest",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": bad_code},
-            ],
-            format="json",
-            options={"temperature": 0.2},
-        )
+        model="deepseek-coder:latest",
+        messages=[
+            {
+                "role": "system",
+                "content": "You must return ONLY valid JSON with this format: {\"optimized_code\": \"FULL COMPLETE PYTHON CODE\"}"
+            },
+             {
+                 "role": "system",
+                 "content": system_prompt
+             },
+             {
+            "role": "user",
+            "content": bad_code
+        }
+    ],
+    format="json",
+    options={"temperature": 0.0},
+)
+
 
         raw = response["message"]["content"]
         parsed = extract_json_from_response(raw)
