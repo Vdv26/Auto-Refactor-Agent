@@ -29,18 +29,22 @@ def ai_refactor_code(bad_code, language="java"):
     
     context_rules = get_refactoring_context(bad_code)
     
-    # We added a strict template here
+    # ✨ NEW: Intercept and force strict language definitions
+    strict_lang = language
+    if language.lower() == "c":
+        strict_lang = "Pure ANSI C. You must use <stdlib.h> for utilities. C++ features are strictly incompatible."
+    
     system_prompt = f"""
-    You are an Expert Senior Software Engineer specializing in {language}.
+    You are an Expert Senior Software Engineer specializing in {strict_lang}.
     
     You MUST strictly obey these COMPANY CODING STANDARDS:
     {context_rules}
     
     CRITICAL INSTRUCTIONS:
-    1. You must output a RAW JSON object. NO markdown formatting. NO backticks. NO conversational text.
-    2. "optimized_code" MUST contain the ENTIRE, COMPLETE, and RUNNABLE script. You MUST include all necessary #includes, function signatures (e.g., int* myFunction(...) {{ }}), and return statements. DO NOT output partial snippets.
-    3. NO LANGUAGE BLEED: If the target language is C, you are STRICTLY FORBIDDEN from using C++ headers (like <algorithm>) or C++ namespaces (like std::sort). You MUST write pure C using <stdlib.h> and qsort, or implement a manual C sorting algorithm.
-    4. Fix memory leaks (e.g., unnecessary mallocs) and rewrite inefficient algorithms.
+    1. Output a RAW JSON object. NO markdown formatting. NO backticks. NO conversational text.
+    2. "optimized_code" MUST contain the ENTIRE, COMPLETE, and RUNNABLE script. 
+    3. KEEP ORIGINAL SIGNATURES: You MUST keep the original function names (e.g., do not change a utility function into a main() function).
+    4. ALGORITHMS: If the language is C, you must implement a manual efficient sorting algorithm (like Quick Sort or Merge Sort) or use the standard C qsort().
     
     Return EXACTLY this JSON template and absolutely nothing else:
     {{
@@ -51,28 +55,25 @@ def ai_refactor_code(bad_code, language="java"):
     """
 
     try:
-        print("🤖 [Agent] Sending original code to DeepSeek-Coder...") 
+        print(f"🤖 [Agent] Sending original code to DeepSeek-Coder (Target: {strict_lang})...") 
         response = ollama.chat(
-            model='deepseek-coder:latest', 
+            model='deepseek-coder', 
             messages=[
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': f"Optimize this {language} code:\n\n{bad_code}"}
             ],
-            format='json', # ✨ IT IS BACK!
+            format='json',
             options={'temperature': 0.1}
         )
         
         raw_output = response['message']['content']
-        print(f"📥 [Agent] Received response of length: {len(raw_output)} characters.")
-        
         parsed_data = extract_json_from_response(raw_output)
         
         if parsed_data and "optimized_code" in parsed_data:
             return parsed_data
         else:
-            # If it STILL fails, we print exactly what it outputted to your terminal so we can debug it
             print(f"❌ [Agent] PARSE FAILED. Raw Output:\n{raw_output}")
-            return {"error": "Failed to parse LLM output into JSON. Check your terminal to see the raw output.", "raw": raw_output}
+            return {"error": "Failed to parse LLM output into JSON. Check terminal.", "raw": raw_output}
 
     except Exception as e:
         return {"error": f"Local LLM Error: {str(e)}"}

@@ -33,7 +33,7 @@ def reflection_loop(bad_code, language, max_retries=3):
             log.append(f"Attempt {attempt}: Validation Passed! ✅")
             return optimized_code, "Success", log
             
-        log.append(f"Attempt {attempt}: Validation Failed. ❌ Error: {validation_msg.strip().split('\n')[-1]}")
+        log.append(f"Attempt {attempt}: Validation Failed. ❌ Error:\n{validation_msg.strip()}")
         log.append("Feeding error back to AI for correction...")
         
        # Self-Correction Prompt
