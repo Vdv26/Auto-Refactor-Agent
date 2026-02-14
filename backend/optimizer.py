@@ -37,6 +37,7 @@ def reflection_loop(bad_code, language, max_retries=3):
         log.append("Feeding error back to AI for correction...")
         
        # Self-Correction Prompt
+       # Self-Correction Prompt
         correction_prompt = f"""
         You previously generated this {language} code:
         {optimized_code}
@@ -44,15 +45,13 @@ def reflection_loop(bad_code, language, max_retries=3):
         It failed with this syntax error:
         {validation_msg}
         
-        Fix the error and return ONLY a JSON object.
+        Fix the error and return ONLY a RAW JSON object. NO markdown formatting. NO backticks.
         CRITICAL: The "optimized_code" must contain the ENTIRE, FULLY FUNCTIONAL script.
         
-        Output it inside a markdown block exactly like this:
-        ```json
+        Use exactly this template:
         {{
             "optimized_code": "The FULL corrected script here"
         }}
-        ```
         """
         
         try:
@@ -60,7 +59,7 @@ def reflection_loop(bad_code, language, max_retries=3):
             response = ollama.chat(
                 model='deepseek-coder:latest', 
                 messages=[{'role': 'user', 'content': correction_prompt}],
-                # ✨ REMOVED format='json' FROM HERE
+                format='json', # ✨ IT IS BACK!
                 options={'temperature': 0.1}
             )
             raw_output = response['message']['content']

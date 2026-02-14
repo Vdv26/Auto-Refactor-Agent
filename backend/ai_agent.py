@@ -33,23 +33,21 @@ def ai_refactor_code(bad_code, language="java"):
     system_prompt = f"""
     You are an Expert Senior Software Engineer specializing in {language}.
     
-    You MUST strictly obey these COMPANY CODING STANDARDS. Do not ignore them:
+    You MUST strictly obey these COMPANY CODING STANDARDS:
     {context_rules}
     
     CRITICAL INSTRUCTIONS:
-    1. "optimized_code" MUST contain the ENTIRE, COMPLETE, and RUNNABLE script.
-    2. Do NOT output partial snippets. Do NOT remove function definitions or includes.
-    3. You MUST completely rewrite inefficient algorithms (like Bubble Sort) into efficient ones if the rules demand it.
-    4. You MUST rename bad variables.
+    1. You must output a RAW JSON object. NO markdown formatting. NO backticks. NO conversational text.
+    2. "optimized_code" MUST contain the ENTIRE, COMPLETE, and RUNNABLE script.
+    3. If the language is C, you CANNOT use C++ features like std::sort. You must use standard C library functions (like qsort) or write an efficient algorithm manually.
+    4. Fix memory leaks and completely rewrite inefficient algorithms.
     
-    Return EXACTLY this JSON template and nothing else. Output it inside a markdown block:
-    ```json
+    Return EXACTLY this JSON template and absolutely nothing else:
     {{
-        "analysis": "Explain why the original code is bad and its complexity.",
-        "actions": ["List of specific changes made"],
-        "optimized_code": "The FULL, complete, runnable rewritten {language} code"
+        "analysis": "Explain the complexity and memory issues.",
+        "actions": ["List of changes made"],
+        "optimized_code": "The FULL rewritten {language} code here"
     }}
-    ```
     """
 
     try:
@@ -60,7 +58,7 @@ def ai_refactor_code(bad_code, language="java"):
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': f"Optimize this {language} code:\n\n{bad_code}"}
             ],
-            # ✨ REMOVED format='json' FROM HERE
+            format='json', # ✨ IT IS BACK!
             options={'temperature': 0.1}
         )
         
