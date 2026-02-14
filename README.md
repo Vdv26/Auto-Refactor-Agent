@@ -1,32 +1,74 @@
-# 🧠 Autonomous Multi-Language Refactoring Agent
+#  Autonomous Code Refactoring Agent
 
-An enterprise-grade, locally hosted AI agent designed to autonomously analyze, refactor, and optimize code. Unlike standard LLM wrappers, this project utilizes an **Actor-Critic Reflection Architecture** and **Retrieval-Augmented Generation (RAG)** to guarantee code structural integrity and enforce strict coding standards without relying on external cloud APIs.
+An enterprise-style, fully local AI-powered refactoring system that analyzes inefficient or syntactically broken code and automatically generates an optimized, production-ready version.
 
-## ✨ Key Features
+This project runs completely offline using a local Large Language Model (LLM) via Ollama.
 
-* **100% Local Inference:** Powered by `Ollama` and `DeepSeek-Coder`. Zero data leaves your machine, ensuring complete privacy for proprietary code.
-* **Retrieval-Augmented Generation (RAG):** Uses `ChromaDB` and `SentenceTransformers` to ground the LLM's outputs in strict, customizable coding standards (SOLID principles, Big-O optimization).
-* **Actor-Critic Reflection Loop:** The agent doesn't just guess; it compiles. If the generated code contains syntax errors, the Validator (Critic) feeds the exact compiler error back to the LLM (Actor) for autonomous self-correction.
-* **Multi-Language Support:** Natively validates and refactors **Python, Java, C, and C++** using language-specific ASTs and compilers.
+---
 
-## ⚙️ System Architecture
+## 🚀 Overview
 
-1. **Input:** User submits messy, unoptimized code via the `Streamlit` UI.
-2. **Retrieval (RAG):** `ChromaDB` vectorizes the input and retrieves the most mathematically relevant coding rules from the local knowledge base.
-3. **Generation (Actor):** The local LLM generates optimized code formatted as strict JSON.
-4. **Validation (Critic):** The backend intercepts the JSON and validates the code using `ast.parse` (Python), `gcc/g++ -fsyntax-only` (C/C++), or `javac` (Java).
-5. **Reflection Loop:** If validation fails, the error is injected into a new prompt, and the LLM iteratively fixes its own mistakes until the code compiles perfectly.
+This agent accepts inefficient or broken code and:
 
-## 🛠️ Prerequisites
+- Fixes syntax errors
+- Improves time complexity
+- Improves space efficiency
+- Applies clean code principles
+- Returns a fully optimized implementation
+- Validates syntax automatically
 
-Ensure you have the following installed on your system:
-* **Python 3.8+**
-* **Ollama:** [Download Here](https://ollama.com/)
-* **Compilers:** `gcc`/`g++` (for C/C++) and `javac` (for Java) installed and added to your system PATH.
+Unlike cloud-based solutions, this system runs entirely on your local machine.
 
-## 🚀 Installation & Setup
+---
 
-**1. Clone the repository**
-```bash
-git clone [https://github.com/Vdv26/Auto-Refactor-Agent.git](https://github.com/Vdv26/Auto-Refactor-Agent.git)
-cd Auto-Refactor-Agent
+##  Architecture 
+
+The system uses a deterministic single-pass generation pipeline:
+
+1. User submits bad code.
+2. Local LLM (DeepSeek-Coder via Ollama) generates optimized code.
+3. The backend extracts only the code.
+4. Unicode characters are sanitized.
+5. AST validation checks for syntax correctness.
+6. If invalid → one deterministic retry is performed.
+7. Final optimized code is returned to the user.
+
+
+
+---
+
+##  Technologies Used
+
+### 1️ Streamlit
+Used to build the interactive web UI.
+
+- Code input panel
+- Agent output display
+- Logs and validation status
+
+---
+
+### 2️⃣ Ollama
+Runs the local LLM.
+
+- Model: `deepseek-coder`
+- Fully offline after initial download
+- Handles code generation
+
+---
+
+### 3️⃣ DeepSeek-Coder (Local LLM)
+A code-specialized language model used for:
+
+- Algorithm improvement
+- Refactoring
+- Clean code transformation
+- Complexity optimization
+
+---
+
+### 4️⃣ AST (Abstract Syntax Tree)
+Used for syntax validation without executing the code.
+
+```python
+ast.parse(code)
