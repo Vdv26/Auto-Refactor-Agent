@@ -14,7 +14,9 @@ def reflection_loop(bad_code, language, max_retries=3):
     log.append(f"Attempt 1: Sending original code to DeepSeek-Coder...")
     agent_response = ai_refactor_code(current_code, language)
     
+    # NEW: Properly log the error if the agent fails
     if "error" in agent_response:
+         log.append(f"❌ Fatal Error: {agent_response['error']}")
          return None, agent_response["error"], log
 
     optimized_code = agent_response.get("optimized_code", "")
@@ -22,7 +24,7 @@ def reflection_loop(bad_code, language, max_retries=3):
     actions = agent_response.get("actions", [])
     
     log.append(f"Analysis: {analysis}")
-
+    # ... rest of the code remains the same
     # Validation & Correction Loop
     while attempt <= max_retries:
         is_valid, validation_msg = check_syntax(optimized_code, language)
@@ -48,7 +50,7 @@ def reflection_loop(bad_code, language, max_retries=3):
         
         try:
             response = ollama.chat(
-                model='deepseek-coder', # Adjust tag based on your exact installed model
+                model='deepseek-coder:latest', # Adjust tag based on your exact installed model
                 messages=[{'role': 'user', 'content': correction_prompt}],
                 options={'temperature': 0.1}
             )

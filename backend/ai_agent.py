@@ -37,7 +37,7 @@ def ai_refactor_code(bad_code, language="java"):
 
     try:
         response = ollama.chat(
-            model='deepseek-coder', # Matching your installed model
+            model='deepseek-coder:latest', # Matching your installed model
             messages=[
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': f"Optimize this {language} code:\n\n{bad_code}"}

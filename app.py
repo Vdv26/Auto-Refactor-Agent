@@ -39,14 +39,17 @@ with col2:
     st.subheader("Agent Output")
     
     if 'logs' in st.session_state:
-        with st.expander("🕵️ Agent Thought Process & Reflection Logs", expanded=False):
+        # I set expanded=True so it stays open for debugging
+        with st.expander("🕵️ Agent Thought Process & Reflection Logs", expanded=True):
             for log in st.session_state['logs']:
                 st.write(log)
                 
-    if 'result_code' in st.session_state and st.session_state['result_code']:
-        st.code(st.session_state['result_code'], language=st.session_state['lang_choice'])
-        
+    # ALWAYS show the status message, so we can see what went wrong
+    if 'status' in st.session_state:
         if "Success" in st.session_state['status']:
             st.success("Validation Passed! Code is structurally sound.")
         else:
-            st.warning(st.session_state['status'])
+            st.error(f"Agent Status: {st.session_state['status']}")
+            
+    if 'result_code' in st.session_state and st.session_state['result_code']:
+        st.code(st.session_state['result_code'], language=st.session_state['lang_choice'])
