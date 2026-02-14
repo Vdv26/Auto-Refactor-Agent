@@ -14,7 +14,16 @@ def reflection_loop(bad_code: str, language: str = "python", max_retries: int = 
         logs.append(f"Initial generation failed: {result['error']}")
         return None, result["error"], logs
 
-    optimized_code = result.get("optimized_code", "").strip()
+    optimized_code = result.get("optimized_code", "")
+
+    if isinstance(optimized_code, list):
+        optimized_code = "\n".join(map(str, optimized_code))
+
+    elif isinstance(optimized_code, dict):
+        optimized_code = "\n".join(map(str, optimized_code.values()))
+
+    optimized_code = str(optimized_code).strip()
+
 
     logs.append(f"Algorithmic Flaws: {result.get('algorithmic_flaws', '')}")
     logs.append(f"Proposed Algorithm: {result.get('proposed_optimal_algorithm', '')}")
