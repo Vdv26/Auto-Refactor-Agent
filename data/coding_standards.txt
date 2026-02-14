@@ -2,14 +2,21 @@ RULE 1: SOLID PRINCIPLES
 Single Responsibility Principle: A class or function should have one, and only one, reason to change.
 Open/Closed Principle: Code should be open for extension, but closed for modification.
 
-RULE 2: BIG-O OPTIMIZATION
-Bubble Sort (O(n^2)) should always be replaced with built-in sorting functions or efficient algorithms like Merge Sort or Quick Sort (O(n log n)).
-Nested loops searching for elements should be replaced with Hash Maps or Hash Sets to reduce lookup time from O(n) to O(1).
+RULE 2: BIG-O & ALGORITHMIC OPTIMIZATION
+Bubble Sort (O(n^2)) or Selection Sort should always be replaced with built-in sorting functions (like Python's .sort() or C++ std::sort) or efficient algorithms like Merge Sort (O(n log n)).
+Nested loops searching for elements should be replaced with Hash Maps (Python dictionaries, C++ unordered_map) to reduce lookup time from O(n) to O(1).
 
-RULE 3: VARIABLE NAMING
+RULE 3: VARIABLE NAMING & CLEAN CODE
 Avoid single-letter variables like 'x', 'p', or 'temp' unless used as standard loop iterators (i, j, k).
 Variables must be descriptive (e.g., 'passengerCount' instead of 'pc').
+Functions must use verbs (e.g., 'calculateTotal' instead of 'total').
 
-RULE 4: REDUNDANCY
-Remove unused variables immediately.
-Combine multiple identical loops if they iterate over the same data.
+RULE 4: PYTHON SPECIFIC IDIOMS
+Use list comprehensions instead of standard for-loops for simple list generation.
+Use 'enumerate()' instead of keeping a separate counter variable in a loop.
+Use 'with open(...)' for file handling to ensure files are closed automatically.
+
+RULE 5: C/C++ MEMORY & SAFETY
+Always initialize pointers to nullptr.
+Prefer standard library containers (std::vector, std::string) over raw arrays and C-strings.
+Avoid raw 'new' and 'delete'; use smart pointers (std::unique_ptr, std::shared_ptr) to prevent memory leaks.
