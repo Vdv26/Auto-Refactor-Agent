@@ -36,14 +36,14 @@ def reflection_loop(bad_code, language, max_retries=3):
         log.append(f"Attempt {attempt}: Validation Failed. ❌ Error:\n{validation_msg.strip()}")
         log.append("Feeding error back to AI for correction...")
         
-       # Self-Correction Prompt
+      # Self-Correction Prompt
         correction_prompt = f"""
-        Your previous {language} code failed compilation:
+        Your previous Python code failed with this Syntax Error:
         {validation_msg}
         
-        Fix the syntax error and return ONLY a JSON object matching this example:
+        Fix the error and return ONLY a valid JSON object matching this exact structure:
         {{
-            "optimized_code": "The FULL corrected runnable script here as a single string"
+            "optimized_code": "The FULL corrected Python script here as a single string"
         }}
         """
         
