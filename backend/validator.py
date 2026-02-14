@@ -1,17 +1,19 @@
 import ast
 
-def check_syntax(code, language="python"):
-    """
-    Validates Python syntax using the Abstract Syntax Tree (AST) without executing the code.
-    Returns (True, "Valid") or (False, "Error Message").
-    """
+
+def check_syntax(code: str, language: str = "python"):
     if not isinstance(code, str):
-        return False, f"JSON Format Error ❌: The 'optimized_code' value MUST be a single string, but you provided a {type(code).__name__}. Fix your JSON format."
+        return False, "optimized_code must be a string."
+
+    if not code.strip():
+        return False, "Generated code is empty."
 
     try:
         ast.parse(code)
-        return True, "Syntax Valid ✅"
     except SyntaxError as e:
-        return False, f"Python Syntax Error ❌: {e.msg} at line {e.lineno}"
-    except Exception as e:
-        return False, f"Python Parse Error ❌: {str(e)}"
+        return False, f"Syntax Error: {e.msg} at line {e.lineno}"
+
+    if len(code.splitlines()) < 2:
+        return False, "Code appears truncated."
+
+    return True, "Valid"

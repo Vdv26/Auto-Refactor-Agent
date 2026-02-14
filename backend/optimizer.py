@@ -1,78 +1,53 @@
-from backend.ai_agent import ai_refactor_code, extract_json_from_response
+from backend.ai_agent import ai_refactor_code
 from backend.validator import check_syntax
 import ollama
 
+
 def reflection_loop(bad_code, language="python", max_retries=3):
-    current_code = bad_code
+    logs = []
     attempt = 1
-    log = []
 
-    log.append(f"Attempt 1: Sending original code to DeepSeek-Coder...")
-    agent_response = ai_refactor_code(current_code, language)
-    
-    if "error" in agent_response:
-         log.append(f"❌ Fatal Error: {agent_response['error']}")
-         return None, agent_response["error"], log
+    result = ai_refactor_code(bad_code, language)
 
-    optimized_code = agent_response.get("optimized_code", "")
-    analysis = agent_response.get("analysis", "No analysis provided.")
-    
-    log.append(f"Analysis: {analysis}")
+    if "error" in result:
+        return None, result["error"], logs
+
+    optimized_code = result["optimized_code"]
+
+    logs.append("Algorithmic Flaws: " + result["algorithmic_flaws"])
+    logs.append("Proposed Algorithm: " + result["proposed_optimal_algorithm"])
+    logs.append("Time Before: " + result["time_complexity_before"])
+    logs.append("Time After: " + result["time_complexity_after"])
 
     while attempt <= max_retries:
-        is_valid, validation_msg = check_syntax(optimized_code, language)
-        
+        is_valid, message = check_syntax(optimized_code)
+
         if is_valid:
-            log.append(f"Attempt {attempt}: Validation Passed! ✅")
-            return optimized_code, "Success", log
-            
-        log.append(f"Attempt {attempt}: Validation Failed. ❌ Error:\n{validation_msg.strip()}")
-        log.append("Feeding error back to AI for correction...")
-        
+            logs.append("Validation Passed")
+            return optimized_code, "Success", logs
+
+        logs.append(f"Attempt {attempt} Failed: {message}")
+
         correction_prompt = f"""
-        Your previous Python code failed with this Syntax Error:
-        {validation_msg}
-        
-        Here is the broken code you wrote:
-        {optimized_code}
-        
-        CRITICAL INSTRUCTIONS:
-        1. Fix the Python syntax error.
-        2. Return the ENTIRE fixed code. DO NOT TRUNCATE.
-        3. Return ONLY a valid JSON object. 
-        
-        FORMAT:
-        {{
-            "optimized_code": "def your_function():\\n    # The COMPLETE, real fixed code goes here"
-        }}
-        """
-        
-        try:
-            print(f"🤖 [Reflection] Sending error back to LLM for Attempt {attempt + 1}...")
-            response = ollama.chat(
-                model='deepseek-coder:latest', 
-                messages=[{'role': 'user', 'content': correction_prompt}],
-                format='json', 
-                options={'temperature': 0.1}
-            )
-            raw_output = response['message']['content']
-            parsed = extract_json_from_response(raw_output)
-            
-            if parsed and isinstance(parsed, dict) and "optimized_code" in parsed:
-                code_val = parsed["optimized_code"]
-                if isinstance(code_val, dict):
-                    code_val = "\n".join(str(v) for v in code_val.values())
-                elif isinstance(code_val, list):
-                    code_val = "\n".join(str(v) for v in code_val)
-                optimized_code = str(code_val)
-            else:
-                log.append(f"Attempt {attempt + 1}: LLM failed to return valid JSON structure.")
-                
-        except Exception as e:
-            log.append(f"Correction iteration failed: {str(e)}")
-            break
-            
+Fix this Python syntax error:
+
+Error:
+{message}
+
+Broken Code:
+{optimized_code}
+
+Return ONLY corrected JSON with optimized_code field.
+"""
+
+        response = ollama.chat(
+            model="deepseek-coder:latest",
+            messages=[{"role": "user", "content": correction_prompt}],
+            format="json",
+            options={"temperature": 0.1},
+        )
+
+        optimized_code = response["message"]["content"]
         attempt += 1
 
-    log.append("Max retries reached. Returning best attempt.")
-    return optimized_code, "Failed to resolve all syntax errors.", log
+    return optimized_code, "Max retries reached", logs
