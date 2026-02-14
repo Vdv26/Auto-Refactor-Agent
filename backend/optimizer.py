@@ -36,6 +36,7 @@ def reflection_loop(bad_code, language, max_retries=3):
         log.append(f"Attempt {attempt}: Validation Failed. ❌ Error: {validation_msg.strip().split('\n')[-1]}")
         log.append("Feeding error back to AI for correction...")
         
+       
         # Self-Correction Prompt
         correction_prompt = f"""
         You previously generated this {language} code:
@@ -44,16 +45,21 @@ def reflection_loop(bad_code, language, max_retries=3):
         It failed with this syntax error:
         {validation_msg}
         
-        Fix the error and return the corrected code.
-        RETURN ONLY A JSON OBJECT with the key "optimized_code".
+        Fix the error and return ONLY a JSON object using this exact template:
+        {{
+            "optimized_code": "string containing the corrected code"
+        }}
         """
         
         try:
+            print(f"🤖 [Reflection] Sending error back to LLM for Attempt {attempt + 1}...")
             response = ollama.chat(
-                model='deepseek-coder:latest', # Adjust tag based on your exact installed model
+                model='deepseek-coder:latest', 
                 messages=[{'role': 'user', 'content': correction_prompt}],
+                format='json', # ✨ ADD THIS HERE TOO ✨
                 options={'temperature': 0.1}
             )
+            
             # Basic parsing for the correction attempt
             import json, re
             raw_output = response['message']['content']
