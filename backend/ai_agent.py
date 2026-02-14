@@ -1,116 +1,84 @@
-import json
 import ollama
-import re
 from backend.knowledge_base import get_refactoring_context
 
 
-def extract_json_from_response(response_text: str):
-    """
-    Extracts JSON safely from LLM response.
-    Handles code fences and malformed wrapping text.
-    """
-    # Remove markdown code fences if present
-    response_text = re.sub(r"```json|```", "", response_text).strip()
+def parse_structured_output(text: str):
+    sections = {
+        "analysis": "",
+        "algorithm": "",
+        "time_before": "",
+        "time_after": "",
+        "optimized_code": "",
+    }
 
     try:
-        return json.loads(response_text)
-    except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", response_text, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group())
-            except json.JSONDecodeError:
-                return None
-        print("⚠ RAW LLM OUTPUT:\n", response_text)
-    return None
+        sections["analysis"] = text.split("===ANALYSIS===")[1].split("===ALGORITHM===")[0].strip()
+        sections["algorithm"] = text.split("===ALGORITHM===")[1].split("===TIME_BEFORE===")[0].strip()
+        sections["time_before"] = text.split("===TIME_BEFORE===")[1].split("===TIME_AFTER===")[0].strip()
+        sections["time_after"] = text.split("===TIME_AFTER===")[1].split("===CODE===")[0].strip()
+        sections["optimized_code"] = text.split("===CODE===")[1].strip()
+    except Exception:
+        return None
 
+    return sections
 
 
 def ai_refactor_code(bad_code: str, language: str = "python"):
-    """
-    Sends code to DeepSeek-Coder and enforces strict JSON structure.
-    Also normalizes optimized_code to always be a clean string.
-    """
 
     context_rules = get_refactoring_context(bad_code)
 
-    system_prompt = f"""
+    prompt = f"""
 You are an elite senior Python engineer.
 
 STRICT RULES:
-1. Improve algorithm complexity.
-2. Rename variables professionally.
-3. Add type hints.
-4. Add docstring.
-5. Return ONLY valid JSON.
+- Improve algorithm complexity.
+- Rename variables professionally.
+- Add type hints.
+- Add docstring.
+- DO NOT include markdown.
+- DO NOT include JSON.
+- Follow EXACT output format below.
 
 COMPANY STANDARDS:
 {context_rules}
 
-REQUIRED JSON FORMAT:
-{{
-    "algorithmic_flaws": "...",
-    "proposed_optimal_algorithm": "...",
-    "time_complexity_before": "...",
-    "time_complexity_after": "...",
-    "optimized_code": "FULL COMPLETE PYTHON CODE"
-}}
+OUTPUT FORMAT:
+
+===ANALYSIS===
+Explain algorithmic flaws.
+
+===ALGORITHM===
+Name optimal algorithm.
+
+===TIME_BEFORE===
+O(...)
+
+===TIME_AFTER===
+O(...)
+
+===CODE===
+FULL COMPLETE PYTHON CODE
+
+Now refactor this code:
+
+{bad_code}
 """
 
     try:
         response = ollama.chat(
-        model="deepseek-coder:latest",
-        messages=[
-            {
-                "role": "system",
-                "content": "You must return ONLY valid JSON with this format: {\"optimized_code\": \"FULL COMPLETE PYTHON CODE\"}"
-            },
-             {
-                 "role": "system",
-                 "content": system_prompt
-             },
-             {
-            "role": "user",
-            "content": bad_code
-        }
-    ],
-    format="json",
-    options={"temperature": 0.0},
-)
+            model="deepseek-coder:latest",
+            messages=[{"role": "user", "content": prompt}],
+            options={"temperature": 0.2},
+        )
 
+        raw_output = response["message"]["content"]
 
-        raw = response["message"]["content"]
-        parsed = extract_json_from_response(raw)
+        parsed = parse_structured_output(raw_output)
 
         if not parsed:
-            return {"error": "JSON parsing failed", "raw": raw}
-
-        required_keys = [
-            "algorithmic_flaws",
-            "proposed_optimal_algorithm",
-            "time_complexity_before",
-            "time_complexity_after",
-            "optimized_code",
-        ]
-
-        if not all(key in parsed for key in required_keys):
-            return {"error": "Missing required JSON fields", "raw": raw}
-
-        # ---- TYPE NORMALIZATION FOR optimized_code ----
-        code_val = parsed.get("optimized_code")
-
-        if isinstance(code_val, list):
-            code_val = "\n".join(str(line) for line in code_val)
-
-        elif isinstance(code_val, dict):
-            code_val = "\n".join(str(v) for v in code_val.values())
-
-        elif not isinstance(code_val, str):
-            code_val = str(code_val)
-
-        parsed["optimized_code"] = code_val.strip()
+            return {"error": "Structured parsing failed", "raw": raw_output}
 
         return parsed
 
     except Exception as e:
-        return {"error": f"Local LLM Error: {str(e)}"}
+        return {"error": str(e)}

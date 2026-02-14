@@ -1,4 +1,4 @@
-from backend.ai_agent import ai_refactor_code, extract_json_from_response
+from backend.ai_agent import ai_refactor_code
 from backend.validator import check_syntax
 import ollama
 
@@ -14,21 +14,12 @@ def reflection_loop(bad_code: str, language: str = "python", max_retries: int = 
         logs.append(f"Initial generation failed: {result['error']}")
         return None, result["error"], logs
 
-    optimized_code = result.get("optimized_code", "")
+    optimized_code = result.get("optimized_code", "").strip()
 
-    if isinstance(optimized_code, list):
-        optimized_code = "\n".join(map(str, optimized_code))
-
-    elif isinstance(optimized_code, dict):
-        optimized_code = "\n".join(map(str, optimized_code.values()))
-
-    optimized_code = str(optimized_code).strip()
-
-
-    logs.append(f"Algorithmic Flaws: {result.get('algorithmic_flaws', '')}")
-    logs.append(f"Proposed Algorithm: {result.get('proposed_optimal_algorithm', '')}")
-    logs.append(f"Time Before: {result.get('time_complexity_before', '')}")
-    logs.append(f"Time After: {result.get('time_complexity_after', '')}")
+    logs.append("Algorithmic Flaws: " + result.get("analysis", ""))
+    logs.append("Proposed Algorithm: " + result.get("algorithm", ""))
+    logs.append("Time Before: " + result.get("time_before", ""))
+    logs.append("Time After: " + result.get("time_after", ""))
 
     # ---- VALIDATION LOOP ----
     while attempt <= max_retries:
@@ -44,24 +35,31 @@ def reflection_loop(bad_code: str, language: str = "python", max_retries: int = 
 
             logs.append(f"Attempt {attempt} Failed: {message}")
 
+        # ---- REFLECTION PROMPT ----
         correction_prompt = f"""
-    Your previous output was invalid.
+You previously generated invalid Python code.
 
-    You MUST return ONLY valid JSON in EXACT format:
+STRICT FORMAT (DO NOT BREAK FORMAT):
 
-    {{
-        "optimized_code": "FULL COMPLETE PYTHON CODE"
-    }}
+===ANALYSIS===
+Explain what went wrong.
 
-    DO NOT include explanations.
-    DO NOT include markdown.
-    DO NOT include extra fields.
+===ALGORITHM===
+Name optimal algorithm.
 
-    Here is the broken code:
+===TIME_BEFORE===
+O(...)
 
-    {optimized_code}
-    """
+===TIME_AFTER===
+O(...)
 
+===CODE===
+FULL COMPLETE CORRECT PYTHON CODE
+
+Fix the following broken code:
+
+{optimized_code}
+"""
 
         try:
             print(f"🤖 [Reflection] Sending correction attempt {attempt + 1}...")
@@ -69,20 +67,19 @@ def reflection_loop(bad_code: str, language: str = "python", max_retries: int = 
             response = ollama.chat(
                 model="deepseek-coder:latest",
                 messages=[{"role": "user", "content": correction_prompt}],
-                format="json",
-                options={"temperature": 0.1},
+                options={"temperature": 0.0},
             )
 
             raw_output = response["message"]["content"]
 
-            # ✅ FIX: Proper JSON parsing
-            parsed = extract_json_from_response(raw_output)
+            # Parse again using ai_agent's structured parser
+            new_result = ai_refactor_code(optimized_code, language)
 
-            if not parsed or "optimized_code" not in parsed:
-                logs.append(f"Attempt {attempt + 1}: LLM returned invalid JSON.")
+            if "error" in new_result:
+                logs.append(f"Attempt {attempt + 1}: Structured parsing failed.")
                 optimized_code = ""
             else:
-                optimized_code = str(parsed["optimized_code"]).strip()
+                optimized_code = new_result.get("optimized_code", "").strip()
 
         except Exception as e:
             logs.append(f"Reflection iteration crashed: {str(e)}")
