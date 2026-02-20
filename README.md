@@ -6,9 +6,9 @@ The agent specializes in Python code refactoring, focusing on algorithmic improv
 
 ---
 
-## 🚀 Overview
+## Overview
 
-This autonomous agent accepts user-submitted code snippets and performs comprehensive refactoring:
+This autonomous agent accepts user-submitted code and performs comprehensive refactoring:
 
 - **Syntax Correction**: Fixes broken or invalid code.
 - **Algorithmic Optimization**: Reduces time and space complexity (e.g., replacing O(n²) sorts with O(n log n) alternatives).
@@ -20,7 +20,7 @@ Unlike cloud-based tools, this system runs entirely on your local machine, prese
 
 ---
 
-## 🏗️ Architecture & Methodology
+## Architecture & Methodology
 
 The system employs a modular, reflection-based architecture inspired by AI planning and reinforcement learning principles. It combines deterministic generation with feedback loops to achieve high reliability.
 
@@ -45,7 +45,7 @@ The methodology integrates Retrieval-Augmented Generation (RAG) with reflection 
 
 ---
 
-## 🔄 Process Flow
+## Process Flow
 
 The refactoring process follows a deterministic pipeline:
 
@@ -63,7 +63,7 @@ This process ensures a single-pass success rate with fallback retries, balancing
 
 ---
 
-## 🛠️ Technologies Used
+## Technologies Used
 
 ### 1. Streamlit
 - Builds the interactive web UI.
@@ -97,7 +97,7 @@ This process ensures a single-pass success rate with fallback retries, balancing
 
 ---
 
-## 📦 Installation
+##  Installation
 
 1. **Clone the Repository**:
    ```bash
