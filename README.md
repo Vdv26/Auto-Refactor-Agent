@@ -92,6 +92,7 @@ This process ensures a single-pass success rate with fallback retries, balancing
 - Code analysis library for computing metrics like cyclomatic complexity and LOC.
 
 ### 7. Other Dependencies
+
 - See [requirements.txt](requirements.txt) for Python packages (e.g., chromadb, sentence-transformers, ollama).
 - [packages.txt](packages.txt) lists system dependencies (e.g., default-jdk).
 
