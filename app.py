@@ -1,47 +1,48 @@
 import streamlit as st
-from backend.optimizer import reflection_loop
-from backend.validator import check_syntax
+import requests
 
-st.set_page_config(page_title="AI Code Cleaner", layout="wide")
+API_URL = "http://localhost:8000/api/refactor"
 
-st.title("🧠 Autonomous Python Refactoring Agent")
-st.info("Powered by Local DeepSeek-Coder with Reflection Architecture")
+st.set_page_config(page_title="Auto Code Refactoring Agent", page_icon="✨", layout="wide")
 
-col1, col2 = st.columns(2)
+st.title("✨ Autonomous Code Refactoring Agent")
+st.markdown("Powered by Qwen2.5-Coder and FastAPI")
 
-with col1:
-    st.subheader("Input Bad Python Code")
-    # Language is now strictly hardcoded to Python
-    language = "Python"
-    
-    default_code = "def sort(arr):\n    # bad bubble sort\n    n = len(arr)\n    for i in range(n):\n        for j in range(0, n-i-1):\n            if arr[j] > arr[j+1]:\n                arr[j], arr[j+1] = arr[j+1], arr[j]"
+language = st.selectbox("Select Language", ["python", "c", "java"])
+code_input = st.text_area("Paste your code here:", height=300)
 
-    code_input = st.text_area("Source Code:", height=400, value=default_code)
-    
-    if st.button("✨ Auto-Repair & Optimize"):
-        with st.spinner("Agent is analyzing and validating..."):
-            
-            # Execute the reflection loop
-            optimized_code, status, logs = reflection_loop(code_input, language)
-            
-            st.session_state['result_code'] = optimized_code
-            st.session_state['status'] = status
-            st.session_state['logs'] = logs
-            st.session_state['lang_choice'] = "python"
-
-with col2:
-    st.subheader("Agent Output")
-    
-    if 'logs' in st.session_state:
-        with st.expander("🕵️ Agent Thought Process & Reflection Logs", expanded=True):
-            for log in st.session_state['logs']:
-                st.write(log)
+if st.button("✨ Auto-Repair & Optimize"):
+    if code_input:
+        with st.spinner("Analyzing and Refactoring..."):
+            try:
+                response = requests.post(API_URL, json={"code": code_input, "language": language})
                 
-    if 'status' in st.session_state:
-        if "Success" in st.session_state['status']:
-            st.success("Validation Passed! Code is structurally sound.")
-        else:
-            st.error(f"Agent Status: {st.session_state['status']}")
-            
-    if 'result_code' in st.session_state and st.session_state['result_code']:
-        st.code(st.session_state['result_code'], language=st.session_state['lang_choice'])
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    # Display the new agent logs
+                    with st.expander("🕵️ Agent Thought Process & Sandbox Execution Logs", expanded=True):
+                        for log in data["agent_logs"]:
+                            if "✅" in log:
+                                st.success(log)
+                            elif "❌" in log:
+                                st.error(log)
+                            else:
+                                st.write(log)
+                                
+                    st.subheader(f"Status: {data['final_status']}")
+                    
+                    st.subheader("Static Analysis Report")
+                    if data["static_analysis_status"] == "passed":
+                        st.success("Initial Static Analysis Passed!")
+                    else:
+                        st.warning("Initial Static Analysis found issues. The AI used this context.")
+                        st.code(data["static_analysis_issues"], language="text")
+                    
+                    st.subheader("Refactored Code")
+                    st.code(data["refactored_code"], language=language)
+                    
+            except requests.exceptions.ConnectionError:
+                st.error("Could not connect to the backend. Is the FastAPI server running?")
+    else:
+        st.warning("Please enter some code first.")

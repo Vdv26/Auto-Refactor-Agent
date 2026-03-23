@@ -1,118 +1,58 @@
-from backend.validator import check_syntax
-import ollama
 import re
+from backend.ai_agent import ai_agent
+from backend.sandbox import sandbox
 
-
-def extract_python_code(text: str) -> str:
-    """
-    Extracts the first Python code block or returns raw text.
-    """
-    # Try markdown code block
-    match = re.search(r"```python(.*?)```", text, re.DOTALL)
+def extract_python_code(llm_output: str) -> str:
+    """Extracts raw code from markdown blocks if the LLM adds them."""
+    match = re.search(r'```python\n(.*?)\n```', llm_output, re.DOTALL)
     if match:
-        return match.group(1).strip()
+        return match.group(1)
+    return llm_output.strip()
 
-    # Fallback: remove triple backticks
-    text = re.sub(r"```", "", text)
-
-    return text.strip()
-
-
-def sanitize_unicode(code: str) -> str:
+def reflection_loop(original_code: str, static_analysis_report: str, context: str = "", max_retries: int = 1) -> tuple:
     """
-    Replace smart quotes and problematic unicode characters.
+    Orchestrates the refactoring and verifies it via sandboxed execution.
+    Returns: (final_code, status, execution_logs)
     """
-    replacements = {
-        "“": '"',
-        "”": '"',
-        "‘": "'",
-        "’": "'",
-    }
+    logs = ["🔄 Starting Reflection Loop..."]
+    
+    # Attempt 1: Initial Generation
+    logs.append("🧠 Agent generating initial refactored code...")
+    current_code = ai_agent.refactor_code(original_code, static_analysis_report, context)
+    clean_code = extract_python_code(current_code)
+    
+    for attempt in range(max_retries + 1):
+        logs.append(f"▶️ Executing Attempt {attempt + 1} in Docker Sandbox...")
+        
+        # Execute the code in the isolated Docker container
+        execution_result = sandbox.execute_python(clean_code)
+        
+        if execution_result["success"]:
+            logs.append("✅ Execution Successful! Code is structurally sound.")
+            return clean_code, "Success", logs
+        else:
+            error_traceback = execution_result["output"]
+            logs.append(f"❌ Execution Failed. Error:\n{error_traceback}")
+            
+            if attempt < max_retries:
+                logs.append("🛠️ Agent is reflecting on the error and generating a fix...")
+                # Modify the prompt to include the error traceback for self-correction
+                correction_prompt = f"""
+                Your previously refactored code threw a runtime error during sandboxed execution.
+                
+                Previous Code:
+                {clean_code}
+                
+                Runtime Error / Traceback:
+                {error_traceback}
+                
+                Please fix the error and provide the corrected, fully refactored Python code.
+                Only output the code, no explanations.
+                """
+                current_code = ai_agent.refactor_code(original_code, static_analysis_report, context + "\n\n" + correction_prompt)
+                clean_code = extract_python_code(current_code)
+            else:
+                logs.append("⚠️ Max retries reached. Returning the last generated code with errors.")
+                return clean_code, "Failed (Runtime Errors)", logs
 
-    for bad, good in replacements.items():
-        code = code.replace(bad, good)
-
-    return code
-
-
-def reflection_loop(bad_code: str, language: str = "python", max_retries: int = 1):
-    logs = []
-
-    prompt = f"""
-You are an elite Python engineer.
-
-STRICT RULES:
-- Output ONLY valid Python code.
-- Do NOT include explanations.
-- Do NOT include markdown.
-- Do NOT include comments outside code.
-- Return COMPLETE optimized implementation.
-
-Optimize this code:
-
-{bad_code}
-"""
-
-    try:
-        response = ollama.chat(
-            model="deepseek-coder:latest",
-            messages=[{"role": "user", "content": prompt}],
-            options={"temperature": 0.2},
-        )
-
-        raw_output = response["message"]["content"]
-
-        optimized_code = extract_python_code(raw_output)
-        optimized_code = sanitize_unicode(optimized_code)
-
-        if not optimized_code.strip():
-            logs.append("Model returned empty code.")
-            return "", "Failed: Empty Output", logs
-
-        is_valid, message = check_syntax(optimized_code)
-
-        if is_valid:
-            logs.append("Validation Passed ✅")
-            return optimized_code, "Success", logs
-
-        logs.append(f"Validation Failed: {message}")
-
-        # ---- ONE SAFE RETRY ----
-        retry_response = ollama.chat(
-            model="deepseek-coder:latest",
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"""
-The previous code had a syntax error:
-
-{message}
-
-Return ONLY corrected Python code.
-No explanations.
-No markdown.
-
-Fix this:
-
-{optimized_code}
-"""
-                }
-            ],
-            options={"temperature": 0.0},
-        )
-
-        retry_output = retry_response["message"]["content"]
-        optimized_code = extract_python_code(retry_output)
-        optimized_code = sanitize_unicode(optimized_code)
-
-        is_valid, message = check_syntax(optimized_code)
-
-        if is_valid:
-            logs.append("Retry Validation Passed ✅")
-            return optimized_code, "Success", logs
-
-        logs.append(f"Retry Failed: {message}")
-        return optimized_code, "Failed after retry", logs
-
-    except Exception as e:
-        return "", f"Error: {str(e)}", logs
+    return clean_code, "Failed", logs

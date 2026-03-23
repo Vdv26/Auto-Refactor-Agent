@@ -1,106 +1,105 @@
 # Autonomous Code Refactoring Agent
 
-An enterprise-grade, fully local AI-powered refactoring system designed to transform inefficient, syntactically broken, or poorly structured code into optimized, production-ready implementations. This project leverages a local Large Language Model (LLM) via Ollama, ensuring complete offline operation without reliance on cloud services.
+An enterprise-grade, fully local AI-powered refactoring system designed to transform inefficient, syntactically broken, or poorly structured code into optimized, production-ready implementations. Moving beyond standard text generation, this agent employs a Reflection Architecture, utilizing Docker-based sandboxed execution to verify its own code, AST-driven Retrieval-Augmented Generation (RAG) to enforce strict coding standards, and a decoupled FastAPI backend for seamless CI/CD pipeline integration.
 
-The agent specializes in Python code refactoring, focusing on algorithmic improvements, clean code principles, and adherence to industry standards like SOLID principles and Big-O optimization. It incorporates a knowledge base for contextual guidance, reflection loops for error correction, and rigorous validation to guarantee syntactically correct outputs.
+## Abstract
 
----
+Writing code is easy; maintaining clean, optimized, and scalable code is hard. Traditional static analyzers catch syntax errors but cannot refactor logic. Cloud-based LLMs can refactor logic but pose severe data privacy risks and often hallucinate variables or break existing functionality.
 
-## Overview
+This project bridges that gap. By combining the local reasoning power of Qwen2.5-Coder with an isolated Docker execution sandbox, the agent acts as a senior developer. It reads the code, maps its Abstract Syntax Tree (AST), queries a vector database for organizational coding standards, runs static analysis, generates a refactored solution, and most importantly—tests its own code. If the code crashes, the agent reads the runtime error traceback and self-corrects before presenting the final output.
 
-This autonomous agent accepts user-submitted code and performs comprehensive refactoring:
+All of this happens entirely locally, ensuring zero data leakage.
 
-- **Syntax Correction**: Fixes broken or invalid code.
-- **Algorithmic Optimization**: Reduces time and space complexity (e.g., replacing O(n²) sorts with O(n log n) alternatives).
-- **Clean Code Application**: Renames variables descriptively, adds type hints, docstrings, and follows Python idioms.
-- **Validation**: Ensures the output is syntactically valid and structurally sound.
-- **Reflection and Retry**: Implements a deterministic retry mechanism for failed generations.
+## Key Features & Use Cases
 
-Unlike cloud-based tools, this system runs entirely on your local machine, preserving privacy and avoiding API costs.
-
----
+- **Algorithmic Optimization**: Automatically identifies $O(n^2)$ bottlenecks (like nested loops) and refactors them into $O(n)$ or $O(n \log n)$ solutions using Hash Sets and optimized data structures.
+- **The Reflection Loop (Self-Healing)**: Executes generated code in a secure, network-disabled Docker container. If a runtime error (e.g., IndexError, TypeError) occurs, the agent reads the traceback and attempts to fix its own mistake.
+- **AST-Driven RAG Context**: Parses code into an Abstract Syntax Tree to understand its structure (e.g., detecting for loops or try/except blocks), then queries ChromaDB to inject highly specific coding standards into the LLM's prompt.
+- **CI/CD Pipeline Ready**: Completely decoupled architecture allows the agent to review Pull Requests automatically via GitHub Actions, leaving no need for manual UI interaction.
+- **Privacy-First**: Powered by Ollama, running 100% offline.
 
 ## Architecture & Methodology
 
-The system employs a modular, reflection-based architecture inspired by AI planning and reinforcement learning principles. It combines deterministic generation with feedback loops to achieve high reliability.
+The system operates on a highly structured, 5-stage pipeline:
 
-### Core Components
-
-1. **Frontend (Streamlit UI)**: Provides an intuitive interface for code input and output display, including logs and validation status.
-2. **AI Agent ([backend/ai_agent.py](backend/ai_agent.py))**: Orchestrates refactoring by querying the knowledge base and prompting the LLM for structured analysis and code generation.
-3. **Knowledge Base ([backend/knowledge_base.py](backend/knowledge_base.py))**: Uses ChromaDB with sentence embeddings to retrieve relevant coding standards and rules based on code snippets.
-4. **Optimizer ([backend/optimizer.py](backend/optimizer.py))**: Handles code extraction, sanitization, and a reflection loop with up to one retry for optimization tasks.
-5. **Validator ([backend/validator.py](backend/validator.py))**: Performs AST-based syntax checking without execution.
-6. **Analyzer ([backend/analyzer.py](backend/analyzer.py))**: Computes code metrics like cyclomatic complexity and lines of code (LOC) using Lizard.
-7. **Refactorer ([backend/refactorer.py](backend/refactorer.py))**: Applies simple refactoring actions like variable renaming or comment removal.
-
-### Methodology
-
-The methodology integrates Retrieval-Augmented Generation (RAG) with reflection loops:
-
-- **Retrieval-Augmented Generation**: Before prompting the LLM, the system retrieves context from a vectorized knowledge base of coding standards (stored in [data/coding_standards.txt](data/coding_standards.txt)). This ensures outputs align with best practices.
-- **Structured Prompting**: Prompts are engineered to elicit specific sections (analysis, algorithm, complexity, code) for consistent, parseable responses.
-- **Reflection Loop**: If initial generation fails validation, a deterministic retry is triggered with error feedback, minimizing hallucinations.
-- **Heuristic Scoring**: Post-generation, metrics are calculated to quantify improvements (e.g., complexity reduction).
-
----
-
-## Process Flow
-
-The refactoring process follows a deterministic pipeline:
-
-1. **Input Reception**: User submits code via the Streamlit UI in [app.py](app.py).
-2. **Context Retrieval**: [`get_refactoring_context`](backend/knowledge_base.py) queries the ChromaDB collection for relevant rules (e.g., SOLID principles, Big-O optimizations).
-3. **AI Generation**: [`ai_refactor_code`](backend/ai_agent.py) prompts DeepSeek-Coder to produce structured output, including analysis, optimal algorithm, before/after complexity, and refactored code.
-4. **Parsing and Extraction**: [`parse_structured_output`](backend/ai_agent.py) extracts sections; [`extract_python_code`](backend/optimizer.py) isolates code blocks.
-5. **Sanitization**: [`sanitize_unicode`](backend/optimizer.py) replaces problematic characters.
-6. **Validation**: [`check_syntax`](backend/validator.py) uses AST to verify correctness.
-7. **Reflection Retry**: If invalid, [`reflection_loop`](backend/optimizer.py) performs one retry with error details.
-8. **Metrics Analysis**: [`get_metrics`](backend/analyzer.py) computes complexity and LOC for feedback.
-9. **Output Display**: Results, logs, and status are shown in the UI, with optional simple refactorings via [backend/refactorer.py](backend/refactorer.py).
-
-This process ensures a single-pass success rate with fallback retries, balancing efficiency and accuracy.
-
----
+1. **Static Analysis Pre-Processing (pylint)**: Before engaging the LLM, the code is passed through traditional static analyzers. This catches obvious syntax and style violations (PEP-8), saving LLM compute power for deep logical reasoning.
+2. **AST Feature Extraction & RAG (ast, ChromaDB)**: The system parses the original code to extract structural features. These features are embedded via Sentence-Transformers and used to query a vector database containing the organization's specific coding standards.
+3. **LLM Generation (Qwen2.5-Coder)**: The local LLM receives the original code, the static analysis report, and the dynamically retrieved coding standards, generating a mathematically and syntactically optimized solution.
+4. **Sandboxed Verification (Docker)**: The newly generated code is mounted into a lightweight, ephemeral python:3.10-slim Docker container. It is executed with strict memory constraints and a timeout limit to prevent infinite loops.
+5. **The Reflection Retry**: If the Docker container exits with an error code, the agent is fed the stderr traceback and given one retry to reflect on its logical failure and output a corrected script.
 
 ## Technologies Used
 
-### 1. Streamlit
-- Builds the interactive web UI.
-- Handles code input, output display, and real-time logs.
+### Backend & Core Logic
 
-### 2. Ollama
-- Manages local LLM execution.
-- Model: `deepseek-coder:latest` (code-specialized, offline after download).
-- Handles prompt-response cycles for generation and retries.
+- **FastAPI & Uvicorn**: High-performance async API routing.
+- **Ollama (Qwen2.5-Coder)**: The core open-weight reasoning engine.
+- **Docker SDK for Python**: Orchestrates the secure execution sandboxes.
+- **Python AST**: Analyzes logical code boundaries.
+- **ChromaDB & Sentence-Transformers**: Vector database and embeddings (all-MiniLM-L6-v2) for the RAG knowledge base.
+- **Pylint**: Deterministic static code analysis.
 
-### 3. DeepSeek-Coder (Local LLM)
-- Core AI model for code refactoring.
-- Performs algorithmic improvements, variable renaming, and clean code transformations.
-- Configured with low temperature (0.2) for deterministic outputs.
+### Frontend & Automation
 
-### 4. ChromaDB
-- Vector database for storing and querying coding standards.
-- Uses SentenceTransformer embeddings (`all-MiniLM-L6-v2`) for semantic search.
-- Populated from [data/coding_standards.txt](data/coding_standards.txt).
+- **Streamlit**: Interactive web interface for manual refactoring and log visualization.
+- **Requests / CLI**: Command-line interface for terminal-based refactoring.
+- **GitHub Actions**: CI/CD YAML pipelines for automated Pull Request reviews.
 
-### 5. AST (Abstract Syntax Tree)
-- Python's built-in module for syntax validation.
-- Checks code without execution: `ast.parse(code)`.
+## Installation & Setup
 
-### 6. Lizard
-- Code analysis library for computing metrics like cyclomatic complexity and LOC.
+### Prerequisites
 
-### 7. Other Dependencies
+- Python 3.10+ installed.
+- Docker Desktop installed and running on your host machine.
+- Ollama installed locally.
 
-- See [requirements.txt](requirements.txt) for Python packages (e.g., chromadb, sentence-transformers, ollama).
-- [packages.txt](packages.txt) lists system dependencies (e.g., default-jdk).
-
----
-
-##  Installation
+### Step-by-Step Initialization
 
 1. **Clone the Repository**:
+
    ```bash
-   git clone https://github.com/your-repo/auto-refactor-agent.git
+   git clone https://github.com/your-username/auto-refactor-agent.git
    cd auto-refactor-agent
+   ```
+
+2. **Install Dependencies**:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Download the Local LLM**:
+
+   ```bash
+   ollama pull qwen2.5-coder:latest
+   ```
+
+4. **Pull the Docker Sandbox Image**:
+
+   ```bash
+   docker pull python:3.10-slim
+   ```
+
+5. **Start the Microservices (Requires Two Terminals)**:
+
+   - **Terminal 1 (Start the Backend Engine)**:
+
+	 ```bash
+	 uvicorn backend.main:app --reload --port 8000
+	 ```
+
+   - **Terminal 2 (Start the Frontend UI)**:
+
+	 ```bash
+	 streamlit run app.py
+	 ```
+
+## Usage Guide (UI & CLI)
+
+### 1. The Web UI (Streamlit)
+
+Navigate to [http://localhost:8501](http://localhost:8501). Paste your inefficient or broken code into the editor, select the language, and click Auto-Repair & Optimize. Expand the "Agent Thought Process" toggle to watch the system run static analysis, query ChromaDB, and execute the Docker reflection loop in real-time.
+
+### 2. The Command Line Interface (CLI)
+
+For rapid terminal development, you can refactor local files directly. The CLI sends the file to the FastAPI backend and overwrites it with the optimized version.
